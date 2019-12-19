@@ -9,6 +9,11 @@ module.exports.pht2wei = (value) => {
 const wei2pht = (n) => {
   return web3.utils.fromWei(n, 'ether');
 };
+
+const wei2artist = (n) => {
+  return web3.utils.fromWei(n, 'ether') / 10;
+};
+
 module.exports.wei2pht = wei2pht;
 
 module.exports.pht2euro = (photons) => {
@@ -19,6 +24,10 @@ module.exports.wei2euro = (photons) => {
   return parseFloat(wei2pht(photons) * process.env.PHT_PRICE_EURO).toFixed(2);
 };
 
+module.exports.pricePerArtistToken = (photons, artistTokens) => {
+  return parseFloat(wei2pht(photons) / wei2artist(artistTokens)* process.env.PHT_PRICE_EURO).toFixed(2);
+};
+
 module.exports.calcPercentageIncrease = (before, after) => {
   return ((after - before) / before) * 100.0;
 };
@@ -26,3 +35,4 @@ module.exports.calcPercentageIncrease = (before, after) => {
 module.exports.sleep = (seconds) => {
   return new Promise(resolve => setTimeout(resolve, seconds * 1000));
 };
+
