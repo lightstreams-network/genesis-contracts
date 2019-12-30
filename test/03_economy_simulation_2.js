@@ -9,11 +9,19 @@ require('dotenv').config({ path: `${process.env.PWD}/.env` });
 const fs = require('fs');
 
 const { BN } = require('openzeppelin-test-helpers');
-const { pht2wei, wei2pht, pht2euro, wei2euro, pricePerArtistToken, calcPercentageIncrease } = require('./utils');
+const { pht2wei, wei2pht, pht2euro, wei2euro, pricePerArtistToken, calcPercentageIncrease, daysInMonth, artist2wei, wei2artist} = require('./utils');
 
 const FundingPool = artifacts.require("FundingPool.sol");
 const WPHT = artifacts.require("WPHT.sol");
 const ArtistToken = artifacts.require("ArtistToken.sol");
+
+const { generateFans } = require('./generateFans');
+
+let subscribers = generateFans();
+
+for (let subscriberIndex = 0; subscriberIndex < subscribers.length; subscriberIndex++) {
+  console.log(`Index: ${subscriberIndex}, buyDay: ${subscribers[subscriberIndex].buyDay}, month: ${subscribers[subscriberIndex].month}`);
+}
 
 contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, hatcherSimulator, buyer1, buyerSimulator, lastBuyer, feeRecipient]) => {
   let fundingPool;
@@ -23,13 +31,14 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   let totalSupply;
   let tokenWPHTBalance;
   let tokenPrice;
-  let time = 0;
-
-  const secsInMonth = 60*60*24*356/12;
-  const secsInDay = 60*60*24;
+  let day = 0;
+  let buyers = 0;
+  let speculators = 0;
 
   const HATCH_LIMIT_PHT = process.env.HATCH_LIMIT_PHT;
   const HATCH_LIMIT_WEI = pht2wei(HATCH_LIMIT_PHT);
+  const SUBSCRIPTION_PRICE = artist2wei(50);
+  const MIN_FAN_BALANCE = artist2wei(200);
   const SUPER_HATCHER_CAPITAL_PHT = process.env.SUPER_HATCHER_CAPITAL_PHT;
   const SUPER_HATCHER_CAPITAL_WEI = pht2wei(SUPER_HATCHER_CAPITAL_PHT);
   const AVERAGE_HATCHER_CAPITAL_PHT = process.env.AVERAGE_HATCHER_CAPITAL_PHT;
@@ -68,24 +77,84 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   const MIN_HATCH_CONTRIBUTION_WEI = pht2wei(1);
 
   const writableStream = fs.createWriteStream("./simulationOuputFile.csv");
-  writableStream.write('Day, Price, Num_Coins, Fee_balance\n');
+  writableStream.write('Day, Fan_ID, BS, ArtistToken_Value, Euro_Value, Collectors, Buyers, Price, Artist_Token_Supply, Pool_Balance_PHT, Fee_balance\n');
 
-  writePrice = async () => {
+  writePrice = async (fan, bs, artistValueWei, valueWei) => {
     totalSupply = await artistToken.totalSupply();
     tokenWPHTBalance = await wPHT.balanceOf(artistToken.address);   
     tokenPrice = pricePerArtistToken(tokenWPHTBalance, totalSupply);
     let feeBalance = await wPHT.balanceOf(feeRecipient);
 
-    let day = Math.round(time / secsInDay);
-
     writableStream.write(day.toString());
     writableStream.write(", ");
-    writableStream.write(tokenPrice);
+    let fan_id = 0;
+    if (fan) {
+      fan_id = fan.id;
+    }
+    writableStream.write(fan_id.toString());
+    writableStream.write(", ");
+    writableStream.write(bs);
+    writableStream.write(", ");
+    writableStream.write(parseFloat(wei2artist(artistValueWei)).toFixed(0));
+    writableStream.write(", ");
+    writableStream.write(wei2euro(valueWei));
+    writableStream.write(", ");
+    writableStream.write(speculators.toString());
+    writableStream.write(", ");
+    writableStream.write(buyers.toString());
+    writableStream.write(", ");
+    writableStream.write(parseFloat(tokenPrice).toFixed(4));
     writableStream.write(", ");
     writableStream.write(Math.round(wei2pht(totalSupply)).toString());
     writableStream.write(", ");
+    writableStream.write(Math.round(wei2pht(tokenWPHTBalance)).toString());
+    writableStream.write(", ");
     writableStream.write(wei2euro(feeBalance).toString());
     writableStream.write("\n");
+  };
+
+  simulateEvent = async (fan) => {
+    const curBalance = await artistToken.balanceOf(buyerSimulator);
+
+    let subscriptionPrice = wei2artist(totalSupply) / (wei2pht(tokenWPHTBalance) * process.env.PHT_PRICE_EURO * 3);
+    subscriptionPrice = Math.floor(subscriptionPrice);
+
+    let subscriptionPriceWei = artist2wei(subscriptionPrice);
+
+    if (!fan.tokens || fan.tokens.sub(subscriptionPriceWei).lt(MIN_FAN_BALANCE)) {
+      
+      await wPHT.deposit({ from: buyerSimulator, value: BUYER_CAPITAL_WEI });
+      await wPHT.approve(artistToken.address, BUYER_CAPITAL_WEI, {from: buyerSimulator});
+      await artistToken.mint(BUYER_CAPITAL_WEI, {from: buyerSimulator, gasPrice: GAS_PRICE_WEI});
+
+      const newBalance = await artistToken.balanceOf(buyerSimulator);
+      const purchasedAmount = newBalance.sub(curBalance);
+      fan.tokens = purchasedAmount;
+
+      if (PRINT_MARKET_ACTIVITY) {
+        console.log(` purchased ${wei2artist(purchasedAmount)} ${artistTokenSymbol} for ${wei2pht(BUYER_CAPITAL_WEI)} WPHT worth ${wei2euro(BUYER_CAPITAL_WEI)}€`);
+      }
+
+      writePrice(fan, "B", purchasedAmount, BUYER_CAPITAL_WEI);
+    }
+
+    if (fan.buyDay !== day) {
+      const curBalance = await wPHT.balanceOf(buyerSimulator);
+
+      const sellAmount = subscriptionPriceWei;
+      await artistToken.burn(sellAmount, {from: buyerSimulator, gasPrice: GAS_PRICE_WEI});
+      
+      const newBalance = await wPHT.balanceOf(buyerSimulator);
+      const revenue = newBalance.sub(curBalance);
+
+      fan.tokens = fan.tokens.sub(sellAmount);
+
+      writePrice(fan, "S", sellAmount, revenue);
+
+      if (PRINT_MARKET_ACTIVITY) {
+        console.log(` sold ${wei2artist(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
+      }
+    }
   };
 
   it('should print economy settings', async () => {
@@ -144,6 +213,9 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
       value: SUPER_HATCHER_CAPITAL_WEI
     });
 
+    let avgHatchers = wei2pht(HATCHER_SIMULATOR_DEPOSIT_WEI) / AVERAGE_HATCHER_CAPITAL_PHT;
+    speculators = avgHatchers + 1;
+
     const hatcherSimulatorWPHTBalance = await wPHT.balanceOf(hatcherSimulator);
     const superHatcherWPHTBalance = await wPHT.balanceOf(superHatcher);
 
@@ -171,10 +243,12 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     console.log("Economy after fully hatched:");
     console.log(` - total supply is ${wei2pht(artistTokenTotalSupply)} ${artistTokenSymbol}`);
     console.log(` - total size is ${wei2pht(artistTokenWPHTBalance)} WPHT worth ${wei2euro(artistTokenWPHTBalance)}€`);
+    console.log(` - artist token price ${pricePerArtistToken(artistTokenWPHTBalance, artistTokenTotalSupply)} €`);
+
 
     assert.isTrue(isHatched);
 
-    writePrice();
+    writePrice(null, "B", "0", "0");
   });
 
   it('should simulate configured market activity from .env file and print economy state', async () => {
@@ -183,86 +257,38 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
       return;
     }
 
-    await wPHT.deposit({ from: buyer1, value: BUYER_CAPITAL_WEI });
-    await wPHT.approve(artistToken.address, BUYER_CAPITAL_WEI, {from: buyer1});
-    await artistToken.mint(BUYER_CAPITAL_WEI, {from: buyer1, gasPrice: GAS_PRICE_WEI});
-    
-    writePrice();
-
-    const buyer1ArtistTokensBalance = await artistToken.balanceOf(buyer1);
     const preFeeRecipientWPHTBalance = await wPHT.balanceOf(feeRecipient);
-    
-    console.log(`Buyer1:`);
-    console.log(` purchased ${wei2pht(buyer1ArtistTokensBalance)} ${artistTokenSymbol} for ${BUYER_CAPITAL_PHT} WPHT worth ${pht2euro(BUYER_CAPITAL_PHT)}€`);
+   
+    //buyers = BUYERS;
 
-    const buyersArtistTokens = [];
-    buyersArtistTokens[0] = buyer1ArtistTokensBalance;
+    let year = 2020;
+    for (let month = 1; month <= 12; month ++) {
+      let fanIndex = 0;
+      startDay = day;
+      endDay = day + daysInMonth(month, year);
 
-    let secsBetweenBuyer = secsInMonth / (BUYERS -1);
+      console.log(`Month: ${month}`);
+      
+      while(day < endDay) {
+        day++;
+        let date = day - startDay;
 
-    for (let buyerIndex = 1; buyerIndex < BUYERS - 1; buyerIndex++) {
-      const curBalance = await artistToken.balanceOf(buyerSimulator);
+        for (let fanIndex = 0; fanIndex < subscribers.length; fanIndex++) {
+          let fan = subscribers[fanIndex];
 
-      await wPHT.deposit({ from: buyerSimulator, value: BUYER_CAPITAL_WEI });
-      await wPHT.approve(artistToken.address, BUYER_CAPITAL_WEI, {from: buyerSimulator});
-      await artistToken.mint(BUYER_CAPITAL_WEI, {from: buyerSimulator, gasPrice: GAS_PRICE_WEI});
-
-      time = time + secsBetweenBuyer;
-      writePrice();
-
-      const newBalance = await artistToken.balanceOf(buyerSimulator);
-      const purchasedAmount = newBalance.sub(curBalance);
-
-      buyersArtistTokens[buyerIndex] = purchasedAmount;
-
-      if (PRINT_MARKET_ACTIVITY || buyerIndex === 0) {
-        console.log(`Buyer${buyerIndex + 1}:`);
-        console.log(` purchased ${wei2pht(purchasedAmount)} ${artistTokenSymbol} for ${BUYER_CAPITAL_PHT} WPHT worth ${pht2euro(BUYER_CAPITAL_PHT)}€`);
-      }
-
-      const sellerDelta = Math.round(BUYERS / SELLERS);
-      if (buyerIndex % sellerDelta === 0) {
-        const curBalance = await wPHT.balanceOf(buyerSimulator);
-        const sellerIndex = (buyerIndex - sellerDelta) + 1;
-        const sellAmount = pht2wei(wei2pht(buyersArtistTokens[sellerIndex]) * SELLER_AMOUNT_RATIO);
-
-        await artistToken.burn(sellAmount, {from: buyerSimulator, gasPrice: GAS_PRICE_WEI});
-
-        writePrice();
-
-        const newBalance = await wPHT.balanceOf(buyerSimulator);
-        const revenue = newBalance.sub(curBalance);
-
-        if (PRINT_MARKET_ACTIVITY) {
-          console.log(`Buyer${sellerIndex + 1}:`);
-          console.log(` sold ${wei2pht(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
+          if (fan.buyDay === date && fan.month <= month) {
+            if (PRINT_MARKET_ACTIVITY) {
+              console.log(`Month: ${month} date: ${date} day: ${day}`);  
+              console.log(`Fan ${fanIndex}:`);
+            }
+            if (!fan.isSubscribed) {
+              fan.isSubscribed = true;
+              buyers ++;
+            }
+            await simulateEvent(fan);
+          }
         }
       }
-    }
-
-    if (BUYERS > 1) {
-      await wPHT.deposit({ from: lastBuyer, value: BUYER_CAPITAL_WEI });
-      await wPHT.approve(artistToken.address, BUYER_CAPITAL_WEI, {from: lastBuyer});
-      await artistToken.mint(BUYER_CAPITAL_WEI, {from: lastBuyer, gasPrice: GAS_PRICE_WEI});
-      
-      writePrice();
-
-      const lastBuyerArtistTokensBalance = await artistToken.balanceOf(lastBuyer);
-
-      console.log(`Buyer${BUYERS}:`);
-      console.log(` purchased ${wei2pht(lastBuyerArtistTokensBalance)} ${artistTokenSymbol} for ${BUYER_CAPITAL_PHT} WPHT worth ${pht2euro(BUYER_CAPITAL_PHT)}€`);
-    }
-
-    if (SELLER_RATIO > 0) {
-      await artistToken.burn(buyer1ArtistTokensBalance, {from: buyer1, gasPrice: GAS_PRICE_WEI});
-
-      writePrice();
-
-      const postBurnBuyer1TokenWPHTBalance = await wPHT.balanceOf(buyer1);
-
-      console.log(`Buyer1:`);
-      console.log(` sold ${wei2pht(buyer1ArtistTokensBalance)} ${artistTokenSymbol} for ${wei2pht(postBurnBuyer1TokenWPHTBalance)} WPHT worth ${wei2euro(postBurnBuyer1TokenWPHTBalance)}€`);
-      console.log(` gained ${calcPercentageIncrease(BUYER_CAPITAL_PHT, wei2pht(postBurnBuyer1TokenWPHTBalance))}% in profit`);
     }
 
     const fundingPoolWPHTBalance = await wPHT.balanceOf(fundingPool.address);
@@ -272,7 +298,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     const artistTokenTotalSupply = await artistToken.totalSupply();
 
     console.log(`Artist:`);
-    console.log(` - hatch limit ${HATCH_LIMIT_PHT} WPHT worth ${pht2euro(HATCH_LIMIT_PHT)}€ reached`);
+    console.log(` - has limit ${HATCH_LIMIT_PHT} WPHT worth ${pht2euro(HATCH_LIMIT_PHT)}€ reached`);
     console.log(` - has ${wei2pht(fundingPoolWPHTBalance)} WPHT worth ${wei2euro(fundingPoolWPHTBalance)}€ in disposition to spend on equipment, etc from the funding pool`);
     console.log(` - total supply of his economy is ${wei2pht(artistTokenTotalSupply)} ${artistTokenSymbol}`);
     console.log(` - total size of his economy is ${wei2pht(artistTokenWPHTBalance)} WPHT worth ${wei2euro(artistTokenWPHTBalance)}€`);
