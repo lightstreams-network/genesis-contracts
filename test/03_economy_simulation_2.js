@@ -82,7 +82,10 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   writePrice = async (fan, bs, artistValueWei, valueWei) => {
     totalSupply = await artistToken.totalSupply();
     tokenWPHTBalance = await wPHT.balanceOf(artistToken.address);   
-    tokenPrice = pricePerArtistToken(tokenWPHTBalance, totalSupply);
+    //tokenPrice = pricePerArtistToken(tokenWPHTBalance, totalSupply);
+    tokenPrice = pricePerArtistToken(valueWei, artistValueWei);
+    //tokenPrice = artistValueWei.div(valueWei);
+
     let feeBalance = await wPHT.balanceOf(feeRecipient);
 
     writableStream.write(day.toString());
@@ -248,7 +251,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
     assert.isTrue(isHatched);
 
-    writePrice(null, "B", "0", "0");
+    writePrice(null, "B", new BN("0"), new BN("0"));
   });
 
   it('should simulate configured market activity from .env file and print economy state', async () => {

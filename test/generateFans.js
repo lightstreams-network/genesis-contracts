@@ -24,7 +24,7 @@ module.exports.generateFans = ()=>{
     let dayCount = 0;
     let growth = 0.10;
 
-    let numOfNew = 3;
+    let numOfNew = 30;
     for (let month = 1; month <= 12; month ++) {
         let days = daysInMonth(month, year);
         fans = generateFans(fans, numOfNew, month, days, true);
