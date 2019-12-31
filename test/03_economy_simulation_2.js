@@ -38,7 +38,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   const HATCH_LIMIT_PHT = process.env.HATCH_LIMIT_PHT;
   const HATCH_LIMIT_WEI = pht2wei(HATCH_LIMIT_PHT);
   const SUBSCRIPTION_PRICE = artist2wei(50);
-  const MIN_FAN_BALANCE = artist2wei(200);
+  const MIN_FAN_BALANCE = artist2wei(10);
   const SUPER_HATCHER_CAPITAL_PHT = process.env.SUPER_HATCHER_CAPITAL_PHT;
   const SUPER_HATCHER_CAPITAL_WEI = pht2wei(SUPER_HATCHER_CAPITAL_PHT);
   const AVERAGE_HATCHER_CAPITAL_PHT = process.env.AVERAGE_HATCHER_CAPITAL_PHT;
@@ -122,7 +122,8 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     let subscriptionPrice = wei2artist(totalSupply) / (wei2pht(tokenWPHTBalance) * process.env.PHT_PRICE_EURO * 3);
     subscriptionPrice = Math.floor(subscriptionPrice);
 
-    let subscriptionPriceWei = artist2wei(subscriptionPrice);
+    //let subscriptionPriceWei = artist2wei(subscriptionPrice);
+    let subscriptionPriceWei = artist2wei(100);
 
     if (!fan.tokens || fan.tokens.sub(subscriptionPriceWei).lt(MIN_FAN_BALANCE)) {
       

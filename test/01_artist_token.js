@@ -28,7 +28,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
   const INSUFFICIENT_AMOUNT_TO_RAISE_WEI = pht2wei(INSUFFICIENT_AMOUNT_TO_RAISE_PHT);
   const INSUFFICIENT_CONTRIBUTION_WEI = pht2wei(INSUFFICIENT_CONTRIBUTION_PHT);
 
-  const RESERVE_RATIO = 142857; // kappa ~ 6
+  const RESERVE_RATIO = 142857; // kappa ~ 6 
   const THETA = 350000; // 35% in ppm
   const P0 =  1;
   const FRICTION = 20000; // 2% in ppm
