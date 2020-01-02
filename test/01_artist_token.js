@@ -161,6 +161,9 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
           it("Should have minted the correct amount to the bonding curve contract", async function() {
             let internalTokensInBondingCurve = await artistToken.balanceOf(artistToken.address);
             assert.equal(internalTokensInBondingCurve.toString(), pht2wei((AMOUNT_TO_RAISE_PHT / P0 ) * (1 - (THETA  / DENOMINATOR_PPM))).toString());
+
+            // MS: Should this be as follows because the artist doesn't get allocated Tokens, all Tokens generated during the hatching phase should be allocatable to the hatchers.
+            // assert.equal(internalTokensInBondingCurve.toString(), pht2wei((AMOUNT_TO_RAISE_PHT / P0 )).toString());
           })
 
           it("Should have ended the hatching phase", async function() {

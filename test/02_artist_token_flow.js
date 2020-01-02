@@ -19,7 +19,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
   let postBuyer1ArtistTokensBalance;
 
   const DENOMINATOR_PPM = 1000000;
-  const BUYER_WPHT_PURCHASE_COST_PHT = 1000;
+  const BUYER_WPHT_PURCHASE_COST_PHT = 20000;
   const AMOUNT_TO_RAISE_PHT = 10000;
   const PER_HATCHER_CONTRIBUTION_PHT = AMOUNT_TO_RAISE_PHT / 2;
   const MIN_REQUIRED_HATCHER_CONTRIBUTION_PHT = 100;
@@ -30,7 +30,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
   const MIN_REQUIRED_HATCHER_CONTRIBUTION_WEI = pht2wei(MIN_REQUIRED_HATCHER_CONTRIBUTION_PHT);
 
   const RESERVE_RATIO = 142857; // kappa ~ 6
-  const THETA = 350000; // 35% in ppm
+  const THETA = 950000; // 95% in ppm
   const P0 =  1; // price to purchase during hatching
   const FRICTION = 20000; // 2% in ppm
   const GAS_PRICE_WEI = 15000000000; // 15 gwei
@@ -398,6 +398,53 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
     assert.equal(preClaimLockedInternal.toString(), preClaimLockedInternalExpected.toString());
     assert.isTrue(postClaimLockedInternal.lt(preClaimLockedInternal), "no hatcher's locked internal artist tokens got unlocked");
     assert.isTrue(postClaimHatcherArtistTokensBalance.gt(preClaimHatcherArtistTokensBalance), "hatcher artist tokens balance didn't increase");
+  });
+
+  it('should transfer artist tokens from buyer2 to funding pool', async () => {
+    const preBuyer2TokensBalance = await artistToken.balanceOf(buyer2);
+    const preFundingPoolTokensBalance = await artistToken.balanceOf(fundingPool.address)
+
+    console.log(`Pre-transfer:`);
+    console.log(` - Buyer2 has: ${wei2pht(preBuyer2TokensBalance)} ${artistTokenSymbol}`);
+    console.log(` - Funding Pool has: ${wei2pht(preFundingPoolTokensBalance)} ${artistTokenSymbol}`);
+    
+    await artistToken.transfer(fundingPool.address, pht2wei("500"), {from: buyer2});
+    const postBuyer2TokensBalance = await artistToken.balanceOf(buyer2);
+    const postFundingPoolTokensBalance = await artistToken.balanceOf(fundingPool.address);
+
+    console.log(`Post-transfer:`);
+    console.log(` - Buyer2 has: ${wei2pht(postBuyer2TokensBalance)} ${artistTokenSymbol}`);
+    console.log(` - Funding Pool has: ${wei2pht(postFundingPoolTokensBalance )} ${artistTokenSymbol}`);
+  });
+
+  it('should be possible for the artist to allocate more tokens', async () => {
+    const preFundingPoolTokensBalance = await artistToken.balanceOf(fundingPool.address);
+    const prefundingPoolBalance = await wPHT.balanceOf(fundingPool.address);
+    const preFundingPoolAccountantBalance = await wPHT.balanceOf(fundingPoolAccountant);
+
+    console.log(`Pre-allocating:`);
+    console.log(` - FundingPool balance: ${wei2pht(preFundingPoolTokensBalance)} ${artistTokenSymbol}`);
+    console.log(` - FundingPool balance: ${wei2pht(prefundingPoolBalance)} WPHT`);
+    console.log(` - FundingPoolAccountant balance: ${wei2pht(preFundingPoolAccountantBalance)} WPHT`);
+
+    await artistToken.burn(preFundingPoolTokensBalance, {from: artist, gasPrice: GAS_PRICE_WEI});
+
+    const postBurnFundingPoolTokensBalance = await wPHT.balanceOf(fundingPool.address);
+
+    await fundingPool.allocateFunds(artistToken.address, fundingPoolAccountant, postBurnFundingPoolTokensBalance, {from: artist });
+
+    const postFundingPoolTokensBalance = await artistToken.balanceOf(fundingPool.address);
+    const postFundingPoolBalance = await wPHT.balanceOf(fundingPool.address);
+    const postFundingPoolAccountantBalance = await wPHT.balanceOf(fundingPoolAccountant);
+    const postFundingPoolAccountantBalanceExpected = preFundingPoolAccountantBalance.add(prefundingPoolBalance);
+
+    console.log(`Post-allocating:`);
+    console.log(` - FundingPool balance: ${wei2pht(postFundingPoolTokensBalance)} ${artistTokenSymbol}`);
+    console.log(` - FundingPool balance: ${wei2pht(postFundingPoolBalance)} WPHT`);
+    console.log(` - FundingPoolAccountant balance: ${wei2pht(postFundingPoolAccountantBalance)} WPHT`);
+
+    assert.equal(postFundingPoolBalance.toString(), "0");
+    assert.equal(postFundingPoolAccountantBalance.toString(), postFundingPoolAccountantBalanceExpected.toString());
   });
 
   it('should be possible for hatcher to sell his claimed tokens', async () => {
