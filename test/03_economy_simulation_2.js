@@ -1,8 +1,8 @@
 /**
 
- * User: llukac<lukas@lightstreams.io>
- * Date: 28/10/19 14:44
- * Copyright 2019 (c) Lightstreams, Granada
+ * User: Michael Smolenski
+ * Date: 20/12/19 14:44
+ * Copyright 2019 (c) Lightstreams
  */
 
 require('dotenv').config({ path: `${process.env.PWD}/.env` });
@@ -19,10 +19,6 @@ const { generateFans } = require('./generateFans');
 
 let subscribers = generateFans();
 
-for (let subscriberIndex = 0; subscriberIndex < subscribers.length; subscriberIndex++) {
-  console.log(`Index: ${subscriberIndex}, buyDay: ${subscribers[subscriberIndex].buyDay}, month: ${subscribers[subscriberIndex].month}`);
-}
-
 contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, hatcherSimulator, buyer1, buyerSimulator, lastBuyer, feeRecipient]) => {
   let fundingPool;
   let wPHT;
@@ -34,11 +30,12 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   let day = 0;
   let buyers = 0;
   let speculators = 0;
+  let month = 0;
 
   const HATCH_LIMIT_PHT = process.env.HATCH_LIMIT_PHT;
   const HATCH_LIMIT_WEI = pht2wei(HATCH_LIMIT_PHT);
   const SUBSCRIPTION_PRICE = artist2wei(50);
-  const MIN_FAN_BALANCE = artist2wei(10);
+  const MIN_FAN_BALANCE = artist2wei(30);
   const SUPER_HATCHER_CAPITAL_PHT = process.env.SUPER_HATCHER_CAPITAL_PHT;
   const SUPER_HATCHER_CAPITAL_WEI = pht2wei(SUPER_HATCHER_CAPITAL_PHT);
   const AVERAGE_HATCHER_CAPITAL_PHT = process.env.AVERAGE_HATCHER_CAPITAL_PHT;
@@ -49,7 +46,9 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   const AVERAGE_HATCHERS = TOTAL_HATCHERS - SUPER_HATCHERS;
 
   const DENOMINATOR_PPM = 1000000;
-  const RESERVE_RATIO = process.env.RESERVE_RATIO;
+  // kappa ~ 6 -> 1/7 * 1000000 = 142857
+  // kappa ~ 1.25 (5/4) -> 1/2.25 * 1000000 = 444444
+  const RESERVE_RATIO="444444";
   const THETA = process.env.FUNDING_POOL_HATCH_PERCENTAGE;
   const P0 =  process.env.HATCH_PRICE_PER_TOKEN;
   const FRICTION = process.env.SALE_FEE_PERCENTAGE;
@@ -76,25 +75,42 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   const SALE_FEE_PERCENTAGE = (FRICTION / DENOMINATOR_PPM * 100);
   const MIN_HATCH_CONTRIBUTION_WEI = pht2wei(1);
 
-  const writableStream = fs.createWriteStream("./simulationOuputFile.csv");
-  writableStream.write('Day, Fan_ID, BS, ArtistToken_Value, Euro_Value, Collectors, Buyers, Price, Artist_Token_Supply, Pool_Balance_PHT, Fee_balance\n');
+  let subscriptionPriceWei = artist2wei(30);
 
-  writePrice = async (fan, bs, artistValueWei, valueWei) => {
+  if (PRINT_MARKET_ACTIVITY) {
+    for (let subscriberIndex = 0; subscriberIndex < subscribers.length; subscriberIndex++) {
+      console.log(`Index: ${subscriberIndex}, buyDay: ${subscribers[subscriberIndex].buyDay}, month: ${subscribers[subscriberIndex].month}, sellMonth: ${subscribers[subscriberIndex].sellMonth}`);
+    }
+  }
+
+  const writableStream = fs.createWriteStream("./simulationOuputFile.csv");
+  writableStream.write('Month, Day, Fan_ID, Fan_Type, BS, ArtistToken_Value, Euro_Value, Speculators, Buyers, Price, Artist_Token_Supply, Pool_Balance_PHT, Fee_balance\n');
+
+  writePrice = async (fan, fanType, bs, artistValueWei, valueWei) => {
     totalSupply = await artistToken.totalSupply();
     tokenWPHTBalance = await wPHT.balanceOf(artistToken.address);   
     //tokenPrice = pricePerArtistToken(tokenWPHTBalance, totalSupply);
     tokenPrice = pricePerArtistToken(valueWei, artistValueWei);
     //tokenPrice = artistValueWei.div(valueWei);
 
+    if (totalSupply.gt(pht2wei(new BN("200000")))) {
+      subscriptionPriceWei = artist2wei(15);
+    }
+
     let feeBalance = await wPHT.balanceOf(feeRecipient);
 
-    writableStream.write(day.toString());
+    writableStream.write(month.toString());
     writableStream.write(", ");
+    writableStream.write(month.toString());
+    writableStream.write(", ");
+
     let fan_id = 0;
     if (fan) {
       fan_id = fan.id;
     }
     writableStream.write(fan_id.toString());
+    writableStream.write(", ");
+    writableStream.write(fanType);
     writableStream.write(", ");
     writableStream.write(bs);
     writableStream.write(", ");
@@ -116,30 +132,63 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     writableStream.write("\n");
   };
 
-  simulateEvent = async (fan) => {
+  generateTopUpAmount = () => {
+    let rand = Math.floor(Math.random() * 100);
+    if (rand < 50) {
+      return 500;
+    }
+    if (rand < 80) {
+      return 1000;
+    }
+
+    return 2000;
+  }
+
+  hatcherSell = async (hatcher) => {
+    await artistToken.claimTokens({from: hatcher});
+
+    let balance = await artistToken.balanceOf(hatcher);
+    console.log(`Hatcher claimed ${wei2pht(balance)}`);
+
+    const curBalance = await wPHT.balanceOf(hatcher);
+
+    const sellAmount = balance;
+    await artistToken.burn(sellAmount, {from: hatcher, gasPrice: GAS_PRICE_WEI});
+    
+    const newBalance = await wPHT.balanceOf(hatcher);
+    const revenue = newBalance.sub(curBalance);
+
+    console.log(` sold ${wei2artist(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
+    writePrice(null, "HTC", "S", sellAmount, revenue);
+  }
+
+  simulateSubscriber = async (fan) => {
     const curBalance = await artistToken.balanceOf(buyerSimulator);
 
-    let subscriptionPrice = wei2artist(totalSupply) / (wei2pht(tokenWPHTBalance) * process.env.PHT_PRICE_EURO * 3);
-    subscriptionPrice = Math.floor(subscriptionPrice);
+    //let subscriptionPrice = wei2artist(totalSupply) / (wei2pht(tokenWPHTBalance) * process.env.PHT_PRICE_EURO * 3);
+    //subscriptionPrice = Math.floor(subscriptionPrice);
 
     //let subscriptionPriceWei = artist2wei(subscriptionPrice);
-    let subscriptionPriceWei = artist2wei(100);
 
     if (!fan.tokens || fan.tokens.sub(subscriptionPriceWei).lt(MIN_FAN_BALANCE)) {
+
+      let topUpAmount = generateTopUpAmount();
+      topUpAmount = pht2wei(topUpAmount);
       
-      await wPHT.deposit({ from: buyerSimulator, value: BUYER_CAPITAL_WEI });
-      await wPHT.approve(artistToken.address, BUYER_CAPITAL_WEI, {from: buyerSimulator});
-      await artistToken.mint(BUYER_CAPITAL_WEI, {from: buyerSimulator, gasPrice: GAS_PRICE_WEI});
+      await wPHT.deposit({ from: buyerSimulator, value: topUpAmount });
+      await wPHT.approve(artistToken.address, topUpAmount, {from: buyerSimulator});
+      await artistToken.mint(topUpAmount, {from: buyerSimulator, gasPrice: GAS_PRICE_WEI});
 
       const newBalance = await artistToken.balanceOf(buyerSimulator);
       const purchasedAmount = newBalance.sub(curBalance);
-      fan.tokens = purchasedAmount;
+
+      fan.tokens = fan.tokens.add(purchasedAmount);
 
       if (PRINT_MARKET_ACTIVITY) {
-        console.log(` purchased ${wei2artist(purchasedAmount)} ${artistTokenSymbol} for ${wei2pht(BUYER_CAPITAL_WEI)} WPHT worth ${wei2euro(BUYER_CAPITAL_WEI)}€`);
+        console.log(` purchased ${wei2artist(purchasedAmount)} ${artistTokenSymbol} for ${wei2pht(topUpAmount)} WPHT worth ${wei2euro(topUpAmount)}€`);
       }
 
-      writePrice(fan, "B", purchasedAmount, BUYER_CAPITAL_WEI);
+      writePrice(fan, "SUB", "B", purchasedAmount, topUpAmount);
     }
 
     if (fan.buyDay !== day) {
@@ -153,10 +202,57 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
       fan.tokens = fan.tokens.sub(sellAmount);
 
-      writePrice(fan, "S", sellAmount, revenue);
+      writePrice(fan, "AST", "S", sellAmount, revenue);
 
       if (PRINT_MARKET_ACTIVITY) {
         console.log(` sold ${wei2artist(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
+      }
+    }
+  };
+
+  simulateSpeculator = async (fan) => {
+    const curBalance = await artistToken.balanceOf(buyerSimulator);
+
+    if (fan.month === month) {
+
+      let topUpAmount = 20000;
+      topUpAmount = pht2wei(topUpAmount);
+      
+      await wPHT.deposit({ from: buyerSimulator, value: topUpAmount });
+      await wPHT.approve(artistToken.address, topUpAmount, {from: buyerSimulator});
+      await artistToken.mint(topUpAmount, {from: buyerSimulator, gasPrice: GAS_PRICE_WEI});
+
+      const newBalance = await artistToken.balanceOf(buyerSimulator);
+      const purchasedAmount = newBalance.sub(curBalance);
+      fan.tokens = purchasedAmount;
+
+      if (PRINT_MARKET_ACTIVITY) {
+        console.log(` purchased ${wei2artist(purchasedAmount)} ${artistTokenSymbol} for ${wei2pht(topUpAmount)} WPHT worth ${wei2euro(topUpAmount)}€`);
+      }
+
+      writePrice(fan, "SPC", "B", purchasedAmount, topUpAmount);
+    }
+
+    if (fan.sellMonth === month ) {
+
+      if (fan.tokens ) {
+        const curBalance = await wPHT.balanceOf(buyerSimulator);
+
+        let sellAmount = fan.tokens.div(new BN("2"));
+        //sellAmount = pht2wei(sellAmount);
+
+        await artistToken.burn(sellAmount, {from: buyerSimulator, gasPrice: GAS_PRICE_WEI});
+        
+        const newBalance = await wPHT.balanceOf(buyerSimulator);
+        const revenue = newBalance.sub(curBalance);
+
+        fan.tokens = fan.tokens.sub(sellAmount);
+
+        writePrice(fan, "SPC", "S", sellAmount, revenue);
+
+        if (PRINT_MARKET_ACTIVITY) {
+          console.log(` sold ${wei2artist(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
+        }
       }
     }
   };
@@ -218,7 +314,6 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     });
 
     let avgHatchers = wei2pht(HATCHER_SIMULATOR_DEPOSIT_WEI) / AVERAGE_HATCHER_CAPITAL_PHT;
-    speculators = avgHatchers + 1;
 
     const hatcherSimulatorWPHTBalance = await wPHT.balanceOf(hatcherSimulator);
     const superHatcherWPHTBalance = await wPHT.balanceOf(superHatcher);
@@ -237,22 +332,51 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     await wPHT.approve(artistToken.address, HATCHER_SIMULATOR_DEPOSIT_WEI, {from: hatcherSimulator});
     await artistToken.hatchContribute(HATCHER_SIMULATOR_DEPOSIT_WEI, {from: hatcherSimulator});
 
+    let contribution = await artistToken.initialContributions(hatcherSimulator);
+    let hatcher1_lockedInternal = contribution.lockedInternal;
+    let hatcher1_paidExternal = contribution.paidExternal;
+
+    writePrice(null, "HTC", "B", hatcher1_lockedInternal, hatcher1_paidExternal);
+
     await wPHT.approve(artistToken.address, SUPER_HATCHER_CAPITAL_WEI, {from: superHatcher});
     await artistToken.hatchContribute(SUPER_HATCHER_CAPITAL_WEI, {from: superHatcher});
+
+    contribution = await artistToken.initialContributions(superHatcher);
+    let hatcher2_lockedInternal = contribution.lockedInternal;
+    let hatcher2_paidExternal = contribution.paidExternal;
+
+    writePrice(null, "HTC", "B", hatcher2_lockedInternal, hatcher2_paidExternal);
+
     let isHatched = await artistToken.isHatched();
 
     const artistTokenWPHTBalance = await wPHT.balanceOf(artistToken.address);
     const artistTokenTotalSupply = await artistToken.totalSupply();
+    
+    const totalContributions = SUPER_HATCHER_CAPITAL_WEI.add(HATCHER_SIMULATOR_DEPOSIT_WEI);
 
     console.log("Economy after fully hatched:");
     console.log(` - total supply is ${wei2pht(artistTokenTotalSupply)} ${artistTokenSymbol}`);
     console.log(` - total size is ${wei2pht(artistTokenWPHTBalance)} WPHT worth ${wei2euro(artistTokenWPHTBalance)}€`);
+    console.log(` - hatchers contributed ${wei2pht(totalContributions)} WPHT worth ${wei2euro(totalContributions)}€`);
+    console.log(` - hatchers artist token cost ${pricePerArtistToken(totalContributions, artistTokenTotalSupply)} €`);
     console.log(` - artist token price ${pricePerArtistToken(artistTokenWPHTBalance, artistTokenTotalSupply)} €`);
 
 
     assert.isTrue(isHatched);
 
-    writePrice(null, "B", new BN("0"), new BN("0"));
+  });
+
+  it('should let an Artist to allocate raised funds from the FundingPool', async () => {
+    const wPHTBalance = await wPHT.balanceOf(fundingPool.address);
+    const withdrawAmountWei = wPHTBalance.mul(new BN(ARTIST_FUNDING_POOL_WITHDRAW_RATIO * 100)).div(new BN(100));
+
+    await fundingPool.allocateFunds(artistToken.address, artistAccountant, withdrawAmountWei, { from: artist });
+
+    console.log(`Artist withdrawn ${ARTIST_FUNDING_POOL_WITHDRAW_RATIO * 100}% of tokens, ${wei2pht(withdrawAmountWei)} WPHT, worth ${wei2euro(withdrawAmountWei)}€ from FundingPool to an external account`);
+
+    const accountantWPHTBalance = await wPHT.balanceOf(artistAccountant);
+
+    assert.equal(accountantWPHTBalance.toString(), withdrawAmountWei.toString());
   });
 
   it('should simulate configured market activity from .env file and print economy state', async () => {
@@ -266,12 +390,16 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     //buyers = BUYERS;
 
     let year = 2020;
-    for (let month = 1; month <= 12; month ++) {
+    for (month = 1; month <= 12; month ++) {
       let fanIndex = 0;
       startDay = day;
       endDay = day + daysInMonth(month, year);
 
       console.log(`Month: ${month}`);
+
+      if (month === 4) {
+        hatcherSell(hatcherSimulator);
+      }
       
       while(day < endDay) {
         day++;
@@ -285,11 +413,22 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
               console.log(`Month: ${month} date: ${date} day: ${day}`);  
               console.log(`Fan ${fanIndex}:`);
             }
-            if (!fan.isSubscribed) {
-              fan.isSubscribed = true;
-              buyers ++;
+
+            if (fan.isSubscriber) {
+              await simulateSubscriber(fan);
+            } else {
+              await simulateSpeculator(fan);
             }
-            await simulateEvent(fan);
+
+            if (!fan.isActive) {
+              fan.isActive = true;
+
+              if (fan.isSubscriber) {
+                buyers ++;
+              } else {
+                speculators ++;
+              }
+            }
           }
         }
       }
@@ -308,19 +447,6 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     console.log(` - total size of his economy is ${wei2pht(artistTokenWPHTBalance)} WPHT worth ${wei2euro(artistTokenWPHTBalance)}€`);
 
     console.log(`FeeRecipient charging ${SALE_FEE_PERCENTAGE}% from each sale earned ${wei2pht(feeRecipientProfit)} WPHT worth ${wei2euro(feeRecipientProfit)}€ from all market activity`);
-  });
-
-  it('should let an Artist to allocate raised funds from the FundingPool', async () => {
-    const wPHTBalance = await wPHT.balanceOf(fundingPool.address);
-    const withdrawAmountWei = wPHTBalance.mul(new BN(ARTIST_FUNDING_POOL_WITHDRAW_RATIO * 100)).div(new BN(100));
-
-    await fundingPool.allocateFunds(artistToken.address, artistAccountant, withdrawAmountWei, { from: artist });
-
-    console.log(`Artist withdrawn ${ARTIST_FUNDING_POOL_WITHDRAW_RATIO * 100}% of tokens, ${wei2pht(withdrawAmountWei)} WPHT, worth ${wei2euro(withdrawAmountWei)}€ from FundingPool to an external account`);
-
-    const accountantWPHTBalance = await wPHT.balanceOf(artistAccountant);
-
-    assert.equal(accountantWPHTBalance.toString(), withdrawAmountWei.toString());
   });
 
   it('should let a super hatcher to claim his tokens', async () => {
