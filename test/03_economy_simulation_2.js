@@ -40,7 +40,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   const SUPER_HATCHER_CAPITAL_WEI = pht2wei(SUPER_HATCHER_CAPITAL_PHT);
   const AVERAGE_HATCHER_CAPITAL_PHT = process.env.AVERAGE_HATCHER_CAPITAL_PHT;
   const AVERAGE_HATCHER_CAPITAL_WEI = pht2wei(AVERAGE_HATCHER_CAPITAL_PHT);
-  const HATCHER_SIMULATOR_DEPOSIT_WEI = HATCH_LIMIT_WEI.sub(SUPER_HATCHER_CAPITAL_WEI);
+  const HATCHER_SIMULATOR_DEPOSIT_WEI = HATCH_LIMIT_WEI;  
   const TOTAL_HATCHERS = ((HATCH_LIMIT_PHT - SUPER_HATCHER_CAPITAL_PHT) / AVERAGE_HATCHER_CAPITAL_PHT) + 1;
   const SUPER_HATCHERS = 1;
   const AVERAGE_HATCHERS = TOTAL_HATCHERS - SUPER_HATCHERS;
@@ -145,6 +145,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   }
 
   hatcherSell = async (hatcher) => {
+    console.log(`claiming tokens`);
     await artistToken.claimTokens({from: hatcher});
 
     let balance = await artistToken.balanceOf(hatcher);
@@ -171,6 +172,10 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     //let subscriptionPriceWei = artist2wei(subscriptionPrice);
 
     if (!fan.tokens || fan.tokens.sub(subscriptionPriceWei).lt(MIN_FAN_BALANCE)) {
+      console.log(`sub buy`); 
+      const artistTokenTotalSupply = await artistToken.totalSupply();
+    
+      console.log(` - total supply is ${wei2pht(artistTokenTotalSupply)} ${artistTokenSymbol}`);
 
       let topUpAmount = generateTopUpAmount();
       topUpAmount = pht2wei(topUpAmount);
@@ -192,6 +197,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     }
 
     if (fan.buyDay !== day) {
+      console.log(`sub sell`);
       const curBalance = await wPHT.balanceOf(buyerSimulator);
 
       const sellAmount = subscriptionPriceWei;
@@ -214,7 +220,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     const curBalance = await artistToken.balanceOf(buyerSimulator);
 
     if (fan.month === month) {
-
+      console.log(`spec buy`); 
       let topUpAmount = 20000;
       topUpAmount = pht2wei(topUpAmount);
       
@@ -236,6 +242,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     if (fan.sellMonth === month ) {
 
       if (fan.tokens ) {
+        console.log(`spec sell`); 
         const curBalance = await wPHT.balanceOf(buyerSimulator);
 
         let sellAmount = fan.tokens.div(new BN("2"));
@@ -331,28 +338,32 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   it('should end the hatching phase by contributing configured minimum amount to raise from hatchers', async () => {
     await wPHT.approve(artistToken.address, HATCHER_SIMULATOR_DEPOSIT_WEI, {from: hatcherSimulator});
     await artistToken.hatchContribute(HATCHER_SIMULATOR_DEPOSIT_WEI, {from: hatcherSimulator});
-
+    console.log("hatchContribute1");
     let contribution = await artistToken.initialContributions(hatcherSimulator);
     let hatcher1_lockedInternal = contribution.lockedInternal;
     let hatcher1_paidExternal = contribution.paidExternal;
 
     writePrice(null, "HTC", "B", hatcher1_lockedInternal, hatcher1_paidExternal);
 
+    /*
     await wPHT.approve(artistToken.address, SUPER_HATCHER_CAPITAL_WEI, {from: superHatcher});
     await artistToken.hatchContribute(SUPER_HATCHER_CAPITAL_WEI, {from: superHatcher});
+    console.log("hatchContribute2");
 
     contribution = await artistToken.initialContributions(superHatcher);
     let hatcher2_lockedInternal = contribution.lockedInternal;
     let hatcher2_paidExternal = contribution.paidExternal;
 
     writePrice(null, "HTC", "B", hatcher2_lockedInternal, hatcher2_paidExternal);
+    */
 
     let isHatched = await artistToken.isHatched();
 
     const artistTokenWPHTBalance = await wPHT.balanceOf(artistToken.address);
     const artistTokenTotalSupply = await artistToken.totalSupply();
     
-    const totalContributions = SUPER_HATCHER_CAPITAL_WEI.add(HATCHER_SIMULATOR_DEPOSIT_WEI);
+    //const totalContributions = SUPER_HATCHER_CAPITAL_WEI.add(HATCHER_SIMULATOR_DEPOSIT_WEI);
+    const totalContributions = HATCHER_SIMULATOR_DEPOSIT_WEI;
 
     console.log("Economy after fully hatched:");
     console.log(` - total supply is ${wei2pht(artistTokenTotalSupply)} ${artistTokenSymbol}`);
@@ -397,8 +408,8 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
       console.log(`Month: ${month}`);
 
-      if (month === 4) {
-        hatcherSell(hatcherSimulator);
+      if (month === 1) {
+        await hatcherSell(hatcherSimulator);
       }
       
       while(day < endDay) {
@@ -449,6 +460,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     console.log(`FeeRecipient charging ${SALE_FEE_PERCENTAGE}% from each sale earned ${wei2pht(feeRecipientProfit)} WPHT worth ${wei2euro(feeRecipientProfit)}€ from all market activity`);
   });
 
+/*
   it('should let a super hatcher to claim his tokens', async () => {
     const contribution = await artistToken.initialContributions(superHatcher);
     const lockedInternal = contribution.lockedInternal;
@@ -459,18 +471,20 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
     console.log(`A super hatcher claimed ${wei2pht(balance)} / ${wei2pht(lockedInternal)} ${artistTokenSymbol}`);
   });
+  /*/
 
   it('should let average hatchers to claim their tokens', async () => {
     const contribution = await artistToken.initialContributions(hatcherSimulator);
     const lockedInternal = contribution.lockedInternal;
 
-    await artistToken.claimTokens({from: hatcherSimulator});
+   //await artistToken.claimTokens({from: hatcherSimulator});
 
-    const balance = await artistToken.balanceOf(hatcherSimulator);
+    console.log(`Hatcher has ${wei2pht(lockedInternal)} ${artistTokenSymbol} locked tokens remaining`);
 
-    console.log(`An average hatcher claimed ${wei2pht(balance.div(new BN(AVERAGE_HATCHERS)))} / ${wei2pht(lockedInternal.div(new BN(AVERAGE_HATCHERS)))} ${artistTokenSymbol}`);
+    hatcherSell(hatcherSimulator); 
   });
 
+/*
   it('should let super hatcher to sell his claimed tokens', async () => {
     if (HATCHER_SELL_RATIO === 0) {
       console.log("No hatchers selling simulation is happening because HATCHER_SELL_RATIO setting is set to 0.0");
@@ -479,7 +493,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
     const wPHTBalance = await wPHT.balanceOf(superHatcher);
     const artistTokensBalance = await artistToken.balanceOf(superHatcher);
-    const burnAmountPHT = wei2pht(artistTokensBalance) * HATCHER_SELL_RATIO;
+    const burnAmountPHT = wei2pht(artistTokensBalance);
     const burnAmountWei = pht2wei(burnAmountPHT);
 
     if (burnAmountPHT === 0) {
@@ -496,6 +510,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     console.log(` sold ${HATCHER_SELL_RATIO * 100}%, ${burnAmountPHT} ${artistTokenSymbol} for ${wei2euro(revenue)}€`);
     console.log(` gained ${calcPercentageIncrease(SUPER_HATCHER_CAPITAL_PHT * HATCHER_SELL_RATIO, wei2pht(revenue))}% in profit`);
   });
+  */
 
   it('should let average hatchers to sell their claimed tokens', async () => {
     if (HATCHER_SELL_RATIO === 0) {
@@ -503,26 +518,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
       return;
     }
 
-    const wPHTBalance = await wPHT.balanceOf(hatcherSimulator);
-    const artistTokensBalance = await artistToken.balanceOf(hatcherSimulator);
-    const burnAmountPHT = wei2pht(artistTokensBalance) * HATCHER_SELL_RATIO;
-    const burnAmountPHTPerHatcher = burnAmountPHT / AVERAGE_HATCHERS;
-    const burnAmountWei = pht2wei(burnAmountPHT);
-
-    if (burnAmountPHT === 0) {
-      console.log("Hatcher has no unlocked tokens to sell.");
-      return;
-    }
-
-    await artistToken.burn(burnAmountWei, {from: hatcherSimulator, gasPrice: GAS_PRICE_WEI});
-
-    const postWPHTBalance = await wPHT.balanceOf(hatcherSimulator);
-    const revenue = postWPHTBalance.sub(wPHTBalance);
-    const revenuePerHatcher = revenue.div(new BN(AVERAGE_HATCHERS));
-
-    console.log(`An average hatcher:`);
-    console.log(` sold ${HATCHER_SELL_RATIO * 100}%, ${burnAmountPHTPerHatcher} ${artistTokenSymbol} for ${wei2euro(revenuePerHatcher)}€`);
-    console.log(` gained ${calcPercentageIncrease(AVERAGE_HATCHER_CAPITAL_PHT * HATCHER_SELL_RATIO, wei2pht(revenuePerHatcher))}% in profit`);
+    hatcherSell(hatcherSimulator);  
 
     writableStream.end();
   });
