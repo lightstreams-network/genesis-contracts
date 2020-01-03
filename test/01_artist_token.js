@@ -30,7 +30,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
 
   const RESERVE_RATIO = 142857; // kappa ~ 6 
   const THETA = 350000; // 35% in ppm
-  const P0 =  1;
+  const P0 =  250000; // 0.25 in ppm
   const FRICTION = 20000; // 2% in ppm
   const GAS_PRICE_WEI = 15000000000; // 15 gwei
   const HATCH_DURATION_SECONDS = 3024000; // 5 weeks
@@ -109,7 +109,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
               it("Should have set the locked internal tokens for the hatcher", async function() {
                 let initialContributions = await artistToken.initialContributions(hatcher1);
                 let lockedInternal = initialContributions.lockedInternal;
-                assert.equal(lockedInternal.toString(), (INSUFFICIENT_AMOUNT_TO_RAISE_WEI * P0).toString());
+                assert.equal(lockedInternal.toString(), (INSUFFICIENT_AMOUNT_TO_RAISE_WEI / 4).toString());
               })
             })
             describe("When the ArtistToken cannot pull the reserve token", async function() {
@@ -160,10 +160,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
 
           it("Should have minted the correct amount to the bonding curve contract", async function() {
             let internalTokensInBondingCurve = await artistToken.balanceOf(artistToken.address);
-            assert.equal(internalTokensInBondingCurve.toString(), pht2wei((AMOUNT_TO_RAISE_PHT / P0 ) * (1 - (THETA  / DENOMINATOR_PPM))).toString());
-
-            // MS: Should this be as follows because the artist doesn't get allocated Tokens, all Tokens generated during the hatching phase should be allocatable to the hatchers.
-            // assert.equal(internalTokensInBondingCurve.toString(), pht2wei((AMOUNT_TO_RAISE_PHT / P0 )).toString());
+            assert.equal(internalTokensInBondingCurve.toString(), pht2wei(AMOUNT_TO_RAISE_PHT / 4 ).toString());
           })
 
           it("Should have ended the hatching phase", async function() {
