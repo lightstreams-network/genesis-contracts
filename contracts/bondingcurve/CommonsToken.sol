@@ -21,6 +21,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   struct PreHatchContribution {
     uint256 paidExternal;
     uint256 lockedInternal;
+    uint256 unlockedInternal;
   }
 
   // Helper to represent fractions => 100% = 1000000, 1% = 10000
@@ -48,7 +49,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   uint256 public raisedExternal;
 
   // Total amount of INTERNAL tokens which (can + are) unlocked.
-  uint256 private unlockedInternal;
+  uint256 public unlockedInternal;
 
   // Curve state (has it been hatched?).
   bool public isHatched;
@@ -202,8 +203,11 @@ contract CommonsToken is BondingCurveToken, Pausable {
     //  100.000 funds spend => 50.000 worth of funds unlocked.
     // We should only update the total unlocked when it is less than 100%.
 
-    // TODO: add vesting period ended flag and optimise check.
-    unlockedInternal += _externalAllocated / p0;
+    // TODO: add vesting period ended flag and optimise check.uint256
+    //uint256 amountFundingPoolExternal = (initialRaise * theta ) / DENOMINATOR_PPM;
+    unlockedInternal += _externalAllocated / theta * DENOMINATOR_PPM * p0;
+
+    //unlockedInternal += _externalAllocated / p0;
     if (unlockedInternal >= initialRaise * p0) {
       unlockedInternal = initialRaise * p0;
     }
@@ -219,15 +223,16 @@ contract CommonsToken is BondingCurveToken, Pausable {
     require(initialContributions[msg.sender].lockedInternal > 0);
 
     uint256 paidExternal = initialContributions[msg.sender].paidExternal;
-    uint256 lockedInternal = initialContributions[msg.sender].lockedInternal;
+    //uint256 lockedInternal = initialContributions[msg.sender].lockedInternal;
 
     // The total amount of INTERNAL tokens that should have been unlocked.
     uint256 shouldHaveUnlockedInternal = (paidExternal * unlockedInternal) / initialRaise;
     // The amount of INTERNAL tokens that was already unlocked.
-    uint256 previouslyUnlockedInternal = (paidExternal / p0) - lockedInternal;
+    uint256 previouslyUnlockedInternal = initialContributions[msg.sender].unlockedInternal;
     // The amount that can be unlocked.
     uint256 toUnlock = shouldHaveUnlockedInternal - previouslyUnlockedInternal;
 
+    initialContributions[msg.sender].unlockedInternal += toUnlock;
     initialContributions[msg.sender].lockedInternal -= toUnlock;
     _transfer(address(this), msg.sender, toUnlock);
   }
@@ -319,7 +324,11 @@ contract CommonsToken is BondingCurveToken, Pausable {
     externalToken.transfer(feeRecipient, frictionCost);
 
     if (feeRecipient != fundingPool) {
-      unlockedInternal += frictionCost / p0;
+      unlockedInternal += amount;
+    }
+
+    if (unlockedInternal >= initialRaise * p0) {
+      unlockedInternal = initialRaise * p0;
     }
 
     return reimbursement;

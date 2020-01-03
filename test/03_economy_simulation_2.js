@@ -144,7 +144,14 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     return 2000;
   }
 
-  hatcherSell = async (hatcher) => {
+  hatcherSell = async (hatcher, percentage) => {
+
+    const artistTokenTotalSupply = await artistToken.totalSupply();
+    const unlockedInternal = await artistToken.unlockedInternal();
+  
+    console.log(` - total supply is ${wei2pht(artistTokenTotalSupply)} ${artistTokenSymbol}`);
+    console.log(` - unlockedInternal is ${wei2pht(unlockedInternal)} ${artistTokenSymbol}`);
+
     console.log(`claiming tokens`);
     await artistToken.claimTokens({from: hatcher});
 
@@ -153,7 +160,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
     const curBalance = await wPHT.balanceOf(hatcher);
 
-    const sellAmount = balance;
+    const sellAmount = balance.mul(new BN(percentage)).div(new BN(100));
     await artistToken.burn(sellAmount, {from: hatcher, gasPrice: GAS_PRICE_WEI});
     
     const newBalance = await wPHT.balanceOf(hatcher);
@@ -172,10 +179,6 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     //let subscriptionPriceWei = artist2wei(subscriptionPrice);
 
     if (!fan.tokens || fan.tokens.sub(subscriptionPriceWei).lt(MIN_FAN_BALANCE)) {
-      console.log(`sub buy`); 
-      const artistTokenTotalSupply = await artistToken.totalSupply();
-    
-      console.log(` - total supply is ${wei2pht(artistTokenTotalSupply)} ${artistTokenSymbol}`);
 
       let topUpAmount = generateTopUpAmount();
       topUpAmount = pht2wei(topUpAmount);
@@ -197,7 +200,6 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     }
 
     if (fan.buyDay !== day) {
-      console.log(`sub sell`);
       const curBalance = await wPHT.balanceOf(buyerSimulator);
 
       const sellAmount = subscriptionPriceWei;
@@ -220,7 +222,6 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     const curBalance = await artistToken.balanceOf(buyerSimulator);
 
     if (fan.month === month) {
-      console.log(`spec buy`); 
       let topUpAmount = 20000;
       topUpAmount = pht2wei(topUpAmount);
       
@@ -242,7 +243,6 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     if (fan.sellMonth === month ) {
 
       if (fan.tokens ) {
-        console.log(`spec sell`); 
         const curBalance = await wPHT.balanceOf(buyerSimulator);
 
         let sellAmount = fan.tokens.div(new BN("2"));
@@ -408,8 +408,8 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
       console.log(`Month: ${month}`);
 
-      if (month === 1) {
-        await hatcherSell(hatcherSimulator);
+      if (month === 4 || month === 5 || month === 10 ) {
+        await hatcherSell(hatcherSimulator, 25);
       }
       
       while(day < endDay) {
