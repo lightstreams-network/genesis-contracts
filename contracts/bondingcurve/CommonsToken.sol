@@ -49,7 +49,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   uint256 public hatchExternal;
 
   // Total amount of INTERNAL tokens which (can + are) unlocked.
-  uint256 private unlockedInternal;
+  uint256 private lockedHatchInternal;
 
   // Curve state (has it been hatched?).
   bool public isHatched;
@@ -207,9 +207,9 @@ contract CommonsToken is BondingCurveToken, Pausable {
     // We should only update the total unlocked when it is less than 100%.
 
     // TODO: add vesting period ended flag and optimise check.
-    unlockedInternal += _externalAllocated / p0;
-    if (unlockedInternal >= hatchLimitExternal * p0) {
-      unlockedInternal = hatchLimitExternal * p0;
+    lockedHatchInternal -= _externalAllocated / p0;
+    if (lockedHatchInternal < 0) {
+      lockedHatchInternal = 0;
     }
   }
 
@@ -225,10 +225,12 @@ contract CommonsToken is BondingCurveToken, Pausable {
     uint256 paidExternal = initialContributions[msg.sender].paidExternal;
     uint256 lockedInternal = initialContributions[msg.sender].lockedInternal;
 
+    uint256 hatchInternal = paidExternal * p0;
+
     // The total amount of INTERNAL tokens that should have been unlocked.
-    uint256 shouldHaveUnlockedInternal = (paidExternal * unlockedInternal) / hatchLimitExternal;
+    uint256 shouldHaveUnlockedInternal = hatchInternal * (lockedHatchInternal / hatchLimitInternal);
     // The amount of INTERNAL tokens that was already unlocked.
-    uint256 previouslyUnlockedInternal = (paidExternal / p0) - lockedInternal;
+    uint256 previouslyUnlockedInternal = hatchInternal - lockedInternal;
     // The amount that can be unlocked.
     uint256 toUnlock = shouldHaveUnlockedInternal - previouslyUnlockedInternal;
 
@@ -237,8 +239,9 @@ contract CommonsToken is BondingCurveToken, Pausable {
       toUnlock = lockedInternal;
     }
 
-    initialContributions[msg.sender].lockedInternal -= toUnlock;
     _transfer(address(this), msg.sender, toUnlock);
+
+    initialContributions[msg.sender].lockedInternal -= toUnlock;
   }
 
   function refund()
@@ -298,7 +301,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     // Mint INTERNAL tokens to the reserve:
     // FIXES: https://github.com/commons-stack/genesis-contracts/issues/16
     // _mint(address(this), amountReserveInternal);
-    _mint(address(this), hatchLimitExternal * p0);
+    _mint(address(this), hatchLimitInternal);
 
     // End the hatching phase
     isHatched = true;
@@ -328,11 +331,11 @@ contract CommonsToken is BondingCurveToken, Pausable {
     externalToken.transfer(feeRecipient, frictionCost);
 
     if (feeRecipient != fundingPool) {
-      unlockedInternal += frictionCost / p0;
+      lockedHatchInternal -= frictionCost / p0;
     }
     
-    if (unlockedInternal >= hatchLimitExternal * p0) {
-      unlockedInternal = hatchLimitExternal * p0;
+    if (lockedHatchInternal < 0) {
+      lockedHatchInternal = 0;
     }
 
     return reimbursement;
