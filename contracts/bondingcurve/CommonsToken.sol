@@ -2,6 +2,7 @@ pragma solidity ^0.5.0;
 
 import "./BondingCurveToken.sol";
 import "./vendor/lifecycle/Pausable.sol";
+import "./vendor/math/SafeMath.sol";
 
 /**
  * @title CommonsToken
@@ -11,6 +12,7 @@ import "./vendor/lifecycle/Pausable.sol";
  * @dev Source: https://github.com/commons-stack/genesis-contracts/tree/master/contracts/bondingcurve
  */
 contract CommonsToken is BondingCurveToken, Pausable {
+  using SafeMath for uint256;
   /**
     PreHatchContribution keeps track of the contribution of a hatcher during the hatchin phase:
       - paidExternal: the amount contributed during the hatching phase, denominated in external currency
@@ -136,7 +138,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
 
     p0 = _settings[2];
     hatchLimitExternal = _settings[3];
-    hatchLimitInternal = hatchLimitExternal * p0;
+    hatchLimitInternal = _calcInternalTokens(hatchLimitExternal);
 
     fundingPool = _addresses[1];
     feeRecipient = _addresses[2];
@@ -150,6 +152,10 @@ contract CommonsToken is BondingCurveToken, Pausable {
     minHatchContributionExternal = _settings[7];
 
     externalToken = ERC20(_addresses[0]);
+  }
+
+  function _calcInternalTokens(uint256 externalTokens) internal view returns (uint256) {
+    return externalTokens.mul(p0).div(DENOMINATOR_PPM);
   }
 
   function mint(uint256 _amount)
@@ -192,7 +198,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     initialContributions[msg.sender].paidExternal += contributedExternal;
 
     // Lock the INTERNAL tokens, total is EXTERNAL amount * price of internal token during the raise.
-    initialContributions[msg.sender].lockedInternal += contributedExternal * p0;
+    initialContributions[msg.sender].lockedInternal += _calcInternalTokens(contributedExternal);
   }
 
   // Unlocks a proportionally Hatcher's internal tokens to as external tokens are allocated.
@@ -203,7 +209,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     whenNotPaused
   {
     // TODO: add vesting period ended flag and optimise check.
-    lockedHatchInternal -= _allocatedExternal * p0;
+    lockedHatchInternal -= _calcInternalTokens(_allocatedExternal);
     if (lockedHatchInternal < 0) {
       lockedHatchInternal = 0;
     }
@@ -221,7 +227,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     uint256 paidExternal = initialContributions[msg.sender].paidExternal;
     uint256 lockedInternal = initialContributions[msg.sender].lockedInternal;
 
-    uint256 hatchInternal = paidExternal * p0;
+    uint256 hatchInternal = _calcInternalTokens(paidExternal);
 
     // The total amount of INTERNAL tokens that should have been unlocked.
     uint256 shouldHaveUnlockedInternal = hatchInternal * (lockedHatchInternal / hatchLimitInternal);
@@ -327,7 +333,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     externalToken.transfer(feeRecipient, frictionCostExternal);
 
     if (feeRecipient != fundingPool) {
-      lockedHatchInternal -= frictionCostExternal * p0;
+      lockedHatchInternal -= _calcInternalTokens(frictionCostExternal);
     }
     
     if (lockedHatchInternal < 0) {

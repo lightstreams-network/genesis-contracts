@@ -23,7 +23,7 @@ contract("ClaimTokensOverflow", ([artist, hatcher, buyer, feeRecipient]) => {
 
   const RESERVE_RATIO = 142857; // kappa ~ 6
   const THETA = 350000; // 35% in ppm
-  const P0 =  2; // price to purchase during hatching
+  const P0 =  250000; // 0.25 in ppm. Price to purchase during hatching
   const FRICTION = 20000; // 2% in ppm
   const GAS_PRICE_WEI = 15000000000; // 15 gwei
   const HATCH_DURATION_SECONDS = 3024000; // 5 weeks
@@ -67,7 +67,6 @@ contract("ClaimTokensOverflow", ([artist, hatcher, buyer, feeRecipient]) => {
     await fundingPool.allocateFunds(artistToken.address, artist, balance, {from: artist });
   });
 
-  // Should increase overall economy (paidExternal * unlockedInternal) / initialRaise
   it("should generate income for feeReipient and unlock hatcher funds", async () => {
     const buyerWei = pht2wei(AMOUNT_TO_RAISE_PHT * 100);
 
@@ -84,7 +83,6 @@ contract("ClaimTokensOverflow", ([artist, hatcher, buyer, feeRecipient]) => {
     const contribution = await artistToken.initialContributions(hatcher);
     const lockedInternal = contribution.lockedInternal;
 
-    // Should fail as unlockedInternal what not limited to a max of initialRaise in CommonsToken._curvedBurn()
     await artistToken.claimTokens({from: hatcher});
 
     const balance = await artistToken.balanceOf(hatcher);
