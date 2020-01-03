@@ -14,7 +14,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   /**
     PreHatchContribution keeps track of the contribution of a hatcher during the hatchin phase:
       - paidExternal: the amount contributed during the hatching phase, denominated in external currency
-      - lockedInternal: paidExternal / p0 = the amount of internal tokens represented by paidExternal
+      - lockedInternal: paidExternal * p0 = the amount of internal tokens represented by paidExternal
 
     These tokens are unlocked post-hatch according to a vesting policy. Post hatch, we decrease lockedInternal to 0
   */
@@ -37,7 +37,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
 
   // Curve parameters:
   uint256 public theta; // fraction (in PPM) of the contributed amount that goes to the funding pool
-  uint256 public p0; // price (in externalToken) for which people can purchase the internal token during the hathing phase
+  uint256 public p0; // the proportion (exchange rate of internalToken/externalToken) of internal tokens for every external token contributed during the hathing phase
   uint256 public hatchLimitExternal; // the amount of EXTERNAL tokens that must be contributed during the hatching phase to go post-hatching
   uint256 public hatchLimitInternal; // the amount of INTERNAL tokens that are generated during the hatching phase.
   uint256 public friction; // the fraction (in PPM) that goes to the funding pool when internal tokens are burned
@@ -46,7 +46,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   uint256 public minHatchContributionExternal;
 
   // Total amount of EXTERNAL tokens raised during hatching phase:
-  uint256 public hatchExternal;
+  uint256 public raisedExternal;
 
   // Total amount of INTERNAL tokens which (can + are) unlocked.
   uint256 private lockedHatchInternal;
@@ -176,38 +176,34 @@ contract CommonsToken is BondingCurveToken, Pausable {
     expiredStatus(false)
     whenNotPaused
   {
-    uint256 contributed = _value;
+    uint256 contributedExternal = _value;
 
-    if(hatchExternal + contributed < hatchLimitExternal) {
-      hatchExternal += contributed;
-      _pullExternalTokens(contributed);
+    if(raisedExternal + contributedExternal < hatchLimitExternal) {
+      raisedExternal += contributedExternal;
+      _pullExternalTokens(contributedExternal);
     } else {
-      contributed = hatchLimitExternal - hatchExternal;
-      hatchExternal = hatchLimitExternal;
-      _pullExternalTokens(contributed);
+      contributedExternal = hatchLimitExternal - raisedExternal;
+      raisedExternal = hatchLimitExternal;
+      _pullExternalTokens(contributedExternal);
       _endHatchPhase();
     }
 
     // Increase the amount paid in EXTERNAL tokens.
-    initialContributions[msg.sender].paidExternal += contributed;
+    initialContributions[msg.sender].paidExternal += contributedExternal;
 
     // Lock the INTERNAL tokens, total is EXTERNAL amount * price of internal token during the raise.
-    initialContributions[msg.sender].lockedInternal += contributed * p0;
+    initialContributions[msg.sender].lockedInternal += contributedExternal * p0;
   }
 
-  function fundsAllocated(uint256 _externalAllocated)
+  // Unlocks a proportionally Hatcher's internal tokens to as external tokens are allocated.
+  function fundsAllocated(uint256 _allocatedExternal)
     public
     onlyFundingPool
     whileHatched(true)
     whenNotPaused
   {
-    // Currently, we unlock a 1/1 proportion of tokens.
-    // We could set a different proportion:
-    //  100.000 funds spend => 50.000 worth of funds unlocked.
-    // We should only update the total unlocked when it is less than 100%.
-
     // TODO: add vesting period ended flag and optimise check.
-    lockedHatchInternal -= _externalAllocated / p0;
+    lockedHatchInternal -= _allocatedExternal * p0;
     if (lockedHatchInternal < 0) {
       lockedHatchInternal = 0;
     }
@@ -325,19 +321,19 @@ contract CommonsToken is BondingCurveToken, Pausable {
    * @param amount Amount of tokens to burn
    */
   function _curvedBurn(uint256 amount) internal returns (uint256) {
-    uint256 reimbursement = super._curvedBurn(amount);
-    uint256 frictionCost = friction * reimbursement / DENOMINATOR_PPM;
-    externalToken.transfer(msg.sender, reimbursement - frictionCost);
-    externalToken.transfer(feeRecipient, frictionCost);
+    uint256 reimbursementExternal = super._curvedBurn(amount);
+    uint256 frictionCostExternal = friction * reimbursementExternal / DENOMINATOR_PPM;
+    externalToken.transfer(msg.sender, reimbursementExternal - frictionCostExternal);
+    externalToken.transfer(feeRecipient, frictionCostExternal);
 
     if (feeRecipient != fundingPool) {
-      lockedHatchInternal -= frictionCost / p0;
+      lockedHatchInternal -= frictionCostExternal * p0;
     }
     
     if (lockedHatchInternal < 0) {
       lockedHatchInternal = 0;
     }
 
-    return reimbursement;
+    return reimbursementExternal;
   }
 }

@@ -151,7 +151,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
 
   it('should create a reserve of Artist tokens', async () => {
     const tokensAmount = await artistToken.balanceOf(artistToken.address);
-    const tokensAmountExpected = pht2wei((AMOUNT_TO_RAISE_PHT / P0 ));
+    const tokensAmountExpected = pht2wei((AMOUNT_TO_RAISE_PHT * P0 ));
 
     console.log(`Artist tokens in reserve: ${wei2pht(tokensAmount)} ${artistTokenSymbol}`);
 
