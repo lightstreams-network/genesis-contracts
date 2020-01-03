@@ -50,7 +50,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   // Total amount of EXTERNAL tokens raised during hatching phase:
   uint256 public raisedExternal;
 
-  // Total amount of INTERNAL tokens which (can + are) unlocked.
+  // Total amount of INTERNAL tokens which are locked.
   uint256 private lockedHatchInternal;
 
   // Curve state (has it been hatched?).
