@@ -228,6 +228,11 @@ contract CommonsToken is BondingCurveToken, Pausable {
     // The amount that can be unlocked.
     uint256 toUnlock = shouldHaveUnlockedInternal - previouslyUnlockedInternal;
 
+    // Safety check in case the calculation shouldHaveUnlockedInternal causes an overflow.
+    if (toUnlock >= lockedInternal) {
+      toUnlock = lockedInternal;
+    }
+
     initialContributions[msg.sender].lockedInternal -= toUnlock;
     _transfer(address(this), msg.sender, toUnlock);
   }
@@ -320,6 +325,10 @@ contract CommonsToken is BondingCurveToken, Pausable {
 
     if (feeRecipient != fundingPool) {
       unlockedInternal += frictionCost / p0;
+    }
+    
+    if (unlockedInternal >= initialRaise * p0) {
+      unlockedInternal = initialRaise * p0;
     }
 
     return reimbursement;
