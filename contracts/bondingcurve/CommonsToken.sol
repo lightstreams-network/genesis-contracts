@@ -339,11 +339,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     if (lockedHatchInternal < 0) {
       lockedHatchInternal = 0;
     }
-    
-    if (unlockedInternal >= initialRaise * p0) {
-      unlockedInternal = initialRaise * p0;
-    }
 
     return reimbursementExternal;
   }
-}
+} 

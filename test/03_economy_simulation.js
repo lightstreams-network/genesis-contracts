@@ -199,7 +199,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     }
 
     if (BUYERS > 1) {
-      await wPHT.deposit({ from: lastBuyer, value: BUYER_CAPITAL_WEinitialContributionsI });
+      await wPHT.deposit({ from: lastBuyer, value: BUYER_CAPITAL_WEI });
       await wPHT.approve(artistToken.address, BUYER_CAPITAL_WEI, {from: lastBuyer});
       await artistToken.mint(BUYER_CAPITAL_WEI, {from: lastBuyer, gasPrice: GAS_PRICE_WEI});
 
