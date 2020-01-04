@@ -129,6 +129,12 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     writableStream.write(Math.round(wei2pht(tokenWPHTBalance)).toString());
     writableStream.write(", ");
     writableStream.write(wei2euro(feeBalance).toString());
+
+    const lockedHatchInternal = await artistToken.lockedHatchInternal();
+
+    writableStream.write(", ");
+    writableStream.write(wei2pht(lockedHatchInternal));
+
     writableStream.write("\n");
   };
 
@@ -145,13 +151,18 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   }
 
   hatcherSell = async (hatcher, percentage) => {
-/*
+
     const artistTokenTotalSupply = await artistToken.totalSupply();
-    const unlockedInternal = await artistToken.unlockedInternal();
   
     console.log(` - total supply is ${wei2pht(artistTokenTotalSupply)} ${artistTokenSymbol}`);
-    console.log(` - unlockedInternal is ${wei2pht(unlockedInternal)} ${artistTokenSymbol}`);
-*/
+
+    const contribution = await artistToken.initialContributions(hatcher);
+    const lockedInternal = contribution.lockedInternal;
+    if (lockedInternal <= 0) {
+      console.log(`hatcher cannot claim anymore tokens`);
+      return;
+    }
+
     console.log(`claiming tokens`);
     await artistToken.claimTokens({from: hatcher});
 

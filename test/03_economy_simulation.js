@@ -144,6 +144,34 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     assert.isTrue(isHatched);
   });
 
+  it('should let an Artist to allocate raised funds from the FundingPool', async () => {
+    const wPHTBalance = await wPHT.balanceOf(fundingPool.address);
+    const withdrawAmountWei = wPHTBalance.mul(new BN(ARTIST_FUNDING_POOL_WITHDRAW_RATIO * 100)).div(new BN(100));
+
+    await fundingPool.allocateFunds(artistToken.address, artistAccountant, withdrawAmountWei, { from: artist });
+
+    console.log(`Artist withdrawn ${ARTIST_FUNDING_POOL_WITHDRAW_RATIO * 100}% of tokens, ${wei2pht(withdrawAmountWei)} WPHT, worth ${wei2euro(withdrawAmountWei)}€ from FundingPool to an external account`);
+
+    const accountantWPHTBalance = await wPHT.balanceOf(artistAccountant);
+
+    assert.equal(accountantWPHTBalance.toString(), withdrawAmountWei.toString());
+  });
+
+  it('should let a super hatcher to claim his tokens', async () => {
+    const contribution = await artistToken.initialContributions(superHatcher);
+    const lockedInternal = contribution.lockedInternal;
+    
+    await artistToken.claimTokens({from: superHatcher});
+
+    const balance = await artistToken.balanceOf(superHatcher);
+
+    console.log(`A super hatcher claimed ${wei2pht(balance)} / ${wei2pht(lockedInternal)} ${artistTokenSymbol}`);
+
+    let percentUnlocked = balance.mul(new BN(100)).div(lockedInternal);
+    let percentArtistHatch = (THETA / DENOMINATOR_PPM)*100;
+    assert.equal(percentUnlocked.toString(), percentArtistHatch.toString());
+  });
+
   it('should simulate configured market activity from .env file and print economy state', async () => {
     if (BUYERS === 0) {
       console.log("No post-hatch buying simulation is happening because BUYERS setting is set to 0");
@@ -233,28 +261,19 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     console.log(`FeeRecipient charging ${SALE_FEE_PERCENTAGE}% from each sale earned ${wei2pht(feeRecipientProfit)} WPHT worth ${wei2euro(feeRecipientProfit)}€ from all market activity`);
   });
 
-  it('should let an Artist to allocate raised funds from the FundingPool', async () => {
-    const wPHTBalance = await wPHT.balanceOf(fundingPool.address);
-    const withdrawAmountWei = wPHTBalance.mul(new BN(ARTIST_FUNDING_POOL_WITHDRAW_RATIO * 100)).div(new BN(100));
-
-    await fundingPool.allocateFunds(artistToken.address, artistAccountant, withdrawAmountWei, { from: artist });
-
-    console.log(`Artist withdrawn ${ARTIST_FUNDING_POOL_WITHDRAW_RATIO * 100}% of tokens, ${wei2pht(withdrawAmountWei)} WPHT, worth ${wei2euro(withdrawAmountWei)}€ from FundingPool to an external account`);
-
-    const accountantWPHTBalance = await wPHT.balanceOf(artistAccountant);
-
-    assert.equal(accountantWPHTBalance.toString(), withdrawAmountWei.toString());
-  });
-
   it('should let a super hatcher to claim his tokens', async () => {
     const contribution = await artistToken.initialContributions(superHatcher);
     const lockedInternal = contribution.lockedInternal;
-
+    
     await artistToken.claimTokens({from: superHatcher});
 
     const balance = await artistToken.balanceOf(superHatcher);
 
     console.log(`A super hatcher claimed ${wei2pht(balance)} / ${wei2pht(lockedInternal)} ${artistTokenSymbol}`);
+
+    let percentUnlocked = balance.mul(new BN(100)).div(lockedInternal);
+    let percentArtistHatch = (THETA / DENOMINATOR_PPM)*100;
+    assert.isTrue(percentUnlocked.gt(new BN(percentArtistHatch.toString())));
   });
 
   it('should let average hatchers to claim their tokens', async () => {

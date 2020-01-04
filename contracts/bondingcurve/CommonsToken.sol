@@ -50,7 +50,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   // Total amount of EXTERNAL tokens raised during hatching phase:
   uint256 public raisedExternal;
 
-  // Total amount of INTERNAL tokens which (can + are) unlocked.
+  // Total amount of INTERNAL tokens which are locked.
   uint256 private lockedHatchInternal;
 
   // Curve state (has it been hatched?).
@@ -138,7 +138,9 @@ contract CommonsToken is BondingCurveToken, Pausable {
 
     p0 = _settings[2];
     hatchLimitExternal = _settings[3];
+
     hatchLimitInternal = _calcInternalTokens(hatchLimitExternal);
+    lockedHatchInternal = hatchLimitInternal;
 
     fundingPool = _addresses[1];
     feeRecipient = _addresses[2];
@@ -229,12 +231,17 @@ contract CommonsToken is BondingCurveToken, Pausable {
 
     uint256 hatchInternal = _calcInternalTokens(paidExternal);
 
-    // The total amount of INTERNAL tokens that should have been unlocked.
-    uint256 shouldHaveUnlockedInternal = hatchInternal * (lockedHatchInternal / hatchLimitInternal);
-    // The amount of INTERNAL tokens that was already unlocked.
-    uint256 previouslyUnlockedInternal = hatchInternal - lockedInternal;
-    // The amount that can be unlocked.
-    uint256 toUnlock = shouldHaveUnlockedInternal - previouslyUnlockedInternal;
+    // The total amount of INTERNAL tokens that have been unlocked for all hatchers.
+    uint256 totalUnlockedInternal = hatchLimitInternal - lockedHatchInternal;
+    // The proportional amount of INTERNAL tokens that should have been unlocked for this hatcher.
+    uint256 shouldHaveUnlockedInternal = (hatchInternal * totalUnlockedInternal) / hatchLimitInternal;
+    uint256 currentlyUnlockedInternal = hatchInternal - lockedInternal;
+
+    uint256 toUnlock = shouldHaveUnlockedInternal - currentlyUnlockedInternal;
+
+    if (toUnlock <= 0) {
+      return;
+    }
 
     // Safety check in case the calculation shouldHaveUnlockedInternal causes an overflow.
     if (toUnlock >= lockedInternal) {
