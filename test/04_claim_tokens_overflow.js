@@ -67,6 +67,19 @@ contract("ClaimTokensOverflow", ([artist, hatcher, buyer, feeRecipient]) => {
     await fundingPool.allocateFunds(artistToken.address, artist, balance, {from: artist });
   });
 
+  it("should let hatcher partially claimed tokens", async () => {
+    let contribution = await artistToken.initialContributions(hatcher);
+    let lockedInternal = contribution.lockedInternal;
+
+    await artistToken.claimTokens({from: hatcher}); 
+
+    const balance = await artistToken.balanceOf(hatcher);
+
+    let percentUnlocked = balance.mul(new BN(100)).div(lockedInternal);
+    let percentArtistHatch = (THETA / DENOMINATOR_PPM)*100;
+    assert.equal(percentUnlocked.toString(), percentArtistHatch.toString());
+  });
+
   it("should generate income for feeReipient and unlock hatcher funds", async () => {
     const buyerWei = pht2wei(AMOUNT_TO_RAISE_PHT * 100);
 
@@ -87,6 +100,8 @@ contract("ClaimTokensOverflow", ([artist, hatcher, buyer, feeRecipient]) => {
 
     const balance = await artistToken.balanceOf(hatcher);
 
-    assert.equal(lockedInternal.toString(), balance.toString());
+    let percentUnlocked = balance.mul(new BN(100)).div(lockedInternal);
+    let percentArtistHatch = (THETA / DENOMINATOR_PPM)*100;
+    assert.isTrue(percentUnlocked.gt(new BN(percentArtistHatch.toString())));
   });
 });
