@@ -335,16 +335,20 @@ contract CommonsToken is BondingCurveToken, Pausable {
    */
   function _curvedBurn(uint256 amount) internal returns (uint256) {
     uint256 reimbursementExternal = super._curvedBurn(amount);
-    uint256 frictionCostExternal = friction * reimbursementExternal / DENOMINATOR_PPM;
-    externalToken.transfer(msg.sender, reimbursementExternal - frictionCostExternal);
+    uint256 frictionCostExternal = (friction * reimbursementExternal) / DENOMINATOR_PPM;
+    externalToken.transfer(msg.sender, reimbursementExternal.sub(frictionCostExternal));
     externalToken.transfer(feeRecipient, frictionCostExternal);
 
-    if (feeRecipient != fundingPool) {
-      lockedHatchInternal -= _calcInternalTokens(frictionCostExternal);
+    if (feeRecipient == fundingPool) {
+      return reimbursementExternal;
     }
-    
-    if (lockedHatchInternal < 0) {
+
+    uint256 toUnlockInternal = _calcInternalTokens(frictionCostExternal);
+
+    if (toUnlockInternal > lockedHatchInternal) {
       lockedHatchInternal = 0;
+    } else {
+      lockedHatchInternal = lockedHatchInternal.sub(toUnlockInternal);
     }
 
     return reimbursementExternal;
