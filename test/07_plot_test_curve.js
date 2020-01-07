@@ -5,6 +5,7 @@
  * Copyright 2019 (c) Lightstreams
  */
 
+require('dotenv').config({ path: `${process.env.PWD}/plot2.env` });
 const fs = require('fs');
 
 const { BN } = require('openzeppelin-test-helpers');
@@ -23,35 +24,38 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   let tokenWPHTBalance;
   let tokenPrice;
 
-  const HATCH_LIMIT_PHT = "1000";
+  const MONTHS = process.env.MONTHS;
+  const HATCH_LIMIT_PHT = process.env.HATCH_PHT;
   const HATCH_LIMIT_WEI = pht2wei(HATCH_LIMIT_PHT);
-  const PURCHASE_AMOUNT_PHT = "1000";
+  const PURCHASE_AMOUNT_PHT = process.env.PURCHASE_AMOUNT_PHT;
   const PURCHASE_AMOUNT_WEI = pht2wei(PURCHASE_AMOUNT_PHT);
 
   const DENOMINATOR_PPM = 1000000;
-  const PHT_PRICE_EURO = "0.01";
+  const PHT_PRICE_EURO = process.env.PHT_PRICE_EURO;;
   // kappa ~ 6 -> 1/7 * 1000000 = 142857
   // kappa ~ 1.25 (5/4) -> 1/2.25 * 1000000 = 444444
-  const RESERVE_RATIO = "142857";
-  const THETA = "500000";
-  const P0 = "1000000";
-  const FRICTION = "100000";
-  const GAS_PRICE_WEI = "15000000000";
-  const HATCH_DURATION_SECONDS = "3024000";
-  const HATCH_VESTING_DURATION_SECONDS = "0";
+  const RESERVE_RATIO = process.env.KAPPA;
+  const THETA = process.env.THETA;
+  const P0 =  process.env.P0;
+  const FRICTION = process.env.SALE_FEE_PERCENTAGE;
+  const GAS_PRICE_WEI = process.env.GAS_PRICE_WEI;
+  const HATCH_DURATION_SECONDS = process.env.HATCH_DURATION_SECONDS;
+  const HATCH_VESTING_DURATION_SECONDS = process.env.HATCH_VESTING_DURATION_SECONDS;
 
   const ARTIST_NAME = 'Lightstreams Van Economy';
   const ARTIST_SYMBOL = 'LVE';
 
-  const ARTIST_FUNDING_POOL_WITHDRAW_RATIO = parseFloat("1.0");
+  const ARTIST_FUNDING_POOL_WITHDRAW_RATIO = parseFloat(process.env.ARTIST_FUNDING_POOL_WITHDRAW_RATIO);
 
-  const PRINT_MARKET_ACTIVITY = "false";
+  const PRINT_MARKET_ACTIVITY = process.env.PRINT_MARKET_ACTIVITY === "true";
 
   const SALE_FEE_PERCENTAGE = (FRICTION / DENOMINATOR_PPM * 100);
   const MIN_HATCH_CONTRIBUTION_WEI = pht2wei(1);
 
-  const writableStream = fs.createWriteStream("./07_plot_test_curve.csv");
-  writableStream.write('Time, Amount_External, Amount_Internal, Supply_Internal, Supply_External, Purchase_Exchange_Rate, External_Internal_Ratio\n');
+  const FILE_NAME = process.env.FILE_NAME
+
+  const writableStream = fs.createWriteStream(FILE_NAME);
+  writableStream.write('Time, Buy_Sell, Amount_External, Amount_External_EUR, Amount_Internal, Supply_Internal, Supply_External, Supply_External_EUR, Purchase_Exchange_Rate, External_Internal_Ratio\n');
 
   plot = async (time, bs, externalWei, internalWei) => {
     let totalSupplyInternal = await artistToken.totalSupply();
@@ -66,11 +70,15 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     writableStream.write(", ");
     writableStream.write(Math.round(wei2pht(externalWei)).toString());
     writableStream.write(", ");
+    writableStream.write(parseFloat(wei2pht(externalWei) * process.env.PHT_PRICE_EURO).toFixed(2));
+    writableStream.write(", ");
     writableStream.write(Math.round(wei2pht(internalWei)).toString());
     writableStream.write(", ");
     writableStream.write(Math.round(wei2pht(totalSupplyInternal)).toString());
     writableStream.write(", ");
     writableStream.write(Math.round(wei2pht(totalSupplyExternal)).toString());
+    writableStream.write(", ");
+    writableStream.write(parseFloat(wei2pht(totalSupplyExternal) * process.env.PHT_PRICE_EURO).toFixed(2));
     writableStream.write(", ");
     writableStream.write(parseFloat(purchaseExchange).toFixed(4));
     writableStream.write(", ");
@@ -182,14 +190,17 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   it('should simulate configured market activity from .env file and print economy state', async () => {
     let buyer = [];
 
-    let months = 12;
+    let months = MONTHS;
+
+    let buyAmount = PURCHASE_AMOUNT_PHT / 2;
     
     for (time = 1; time <= months; time ++) {
 
       console.log(`Month: ${time}`);
 
       const curBalance = await artistToken.balanceOf(buyerSimulator);
-      pricePHT = pht2wei(PURCHASE_AMOUNT_PHT);
+      buyAmount = buyAmount *2;
+      pricePHT = pht2wei(buyAmount);
       
       await wPHT.deposit({ from: buyerSimulator, value: pricePHT });
       await wPHT.approve(artistToken.address, pricePHT, {from: buyerSimulator});
