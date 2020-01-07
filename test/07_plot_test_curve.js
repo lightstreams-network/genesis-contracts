@@ -5,7 +5,6 @@
  * Copyright 2019 (c) Lightstreams
  */
 
-require('dotenv').config({ path: `${process.env.PWD}/plot1.env` });
 const fs = require('fs');
 
 const { BN } = require('openzeppelin-test-helpers');
@@ -26,27 +25,27 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
   const HATCH_LIMIT_PHT = "1000";
   const HATCH_LIMIT_WEI = pht2wei(HATCH_LIMIT_PHT);
-  const PURCHASE_AMOUNT_PHT = process.env.PURCHASE_AMOUNT_PHT;
+  const PURCHASE_AMOUNT_PHT = "1000";
   const PURCHASE_AMOUNT_WEI = pht2wei(PURCHASE_AMOUNT_PHT);
 
   const DENOMINATOR_PPM = 1000000;
-  const PHT_PRICE_EURO= process.env.PHT_PRICE_EURO;;
+  const PHT_PRICE_EURO = "0.01";
   // kappa ~ 6 -> 1/7 * 1000000 = 142857
   // kappa ~ 1.25 (5/4) -> 1/2.25 * 1000000 = 444444
-  const RESERVE_RATIO= process.env.RESERVE_RATIO;;
-  const THETA = process.env.THETA;
-  const P0 =  process.env.P0;
-  const FRICTION = process.env.SALE_FEE_PERCENTAGE;
-  const GAS_PRICE_WEI = process.env.GAS_PRICE_WEI;
-  const HATCH_DURATION_SECONDS = process.env.HATCH_DURATION_SECONDS;
-  const HATCH_VESTING_DURATION_SECONDS = process.env.HATCH_VESTING_DURATION_SECONDS;
+  const RESERVE_RATIO = "142857";
+  const THETA = "500000";
+  const P0 = "1000000";
+  const FRICTION = "100000";
+  const GAS_PRICE_WEI = "15000000000";
+  const HATCH_DURATION_SECONDS = "3024000";
+  const HATCH_VESTING_DURATION_SECONDS = "0";
 
   const ARTIST_NAME = 'Lightstreams Van Economy';
   const ARTIST_SYMBOL = 'LVE';
 
-  const ARTIST_FUNDING_POOL_WITHDRAW_RATIO = parseFloat(process.env.ARTIST_FUNDING_POOL_WITHDRAW_RATIO);
+  const ARTIST_FUNDING_POOL_WITHDRAW_RATIO = parseFloat("1.0");
 
-  const PRINT_MARKET_ACTIVITY = process.env.PRINT_MARKET_ACTIVITY === "true";
+  const PRINT_MARKET_ACTIVITY = "false";
 
   const SALE_FEE_PERCENTAGE = (FRICTION / DENOMINATOR_PPM * 100);
   const MIN_HATCH_CONTRIBUTION_WEI = pht2wei(1);
