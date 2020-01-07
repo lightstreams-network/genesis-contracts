@@ -51,7 +51,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   uint256 public raisedExternal;
 
   // Total amount of INTERNAL tokens which are locked.
-  uint256 private lockedHatchInternal;
+  uint256 public lockedHatchInternal;
 
   // Curve state (has it been hatched?).
   bool public isHatched;
@@ -339,14 +339,18 @@ contract CommonsToken is BondingCurveToken, Pausable {
     externalToken.transfer(msg.sender, reimbursementExternal - frictionCostExternal);
     externalToken.transfer(feeRecipient, frictionCostExternal);
 
-    if (feeRecipient != fundingPool) {
-      lockedHatchInternal -= _calcInternalTokens(frictionCostExternal);
+    if (feeRecipient == fundingPool) {
+      return reimbursementExternal;
     }
-    
-    if (lockedHatchInternal < 0) {
+
+    uint256 toUnlockInternal = _calcInternalTokens(frictionCostExternal);
+
+    if (toUnlockInternal > lockedHatchInternal) {
       lockedHatchInternal = 0;
+    } else {
+      lockedHatchInternal = lockedHatchInternal.sub(_calcInternalTokens(frictionCostExternal));
     }
 
     return reimbursementExternal;
   }
-} 
+}
