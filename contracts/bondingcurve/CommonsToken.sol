@@ -203,7 +203,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     // We should only update the total unlocked when it is less than 100%.
 
     // TODO: add vesting period ended flag and optimise check.
-    unlockedInternal += _externalAllocated / p0;
+    unlockedInternal += _externalAllocated * p0;
     if (unlockedInternal >= initialRaise * p0) {
       unlockedInternal = initialRaise * p0;
     }
@@ -222,9 +222,9 @@ contract CommonsToken is BondingCurveToken, Pausable {
     uint256 lockedInternal = initialContributions[msg.sender].lockedInternal;
 
     // The total amount of INTERNAL tokens that should have been unlocked.
-    uint256 shouldHaveUnlockedInternal = (paidExternal * unlockedInternal) / initialRaise;
+    uint256 shouldHaveUnlockedInternal = (paidExternal * p0 * unlockedInternal) / (initialRaise * p0);
     // The amount of INTERNAL tokens that was already unlocked.
-    uint256 previouslyUnlockedInternal = (paidExternal / p0) - lockedInternal;
+    uint256 previouslyUnlockedInternal = (paidExternal * p0) - lockedInternal;
     // The amount that can be unlocked.
     uint256 toUnlock = shouldHaveUnlockedInternal - previouslyUnlockedInternal;
 
@@ -324,7 +324,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     externalToken.transfer(feeRecipient, frictionCost);
 
     if (feeRecipient != fundingPool) {
-      unlockedInternal += frictionCost / p0;
+      unlockedInternal += frictionCost * p0;
     }
 
     uint256 lockedInternalMax = initialRaise * p0;
