@@ -348,7 +348,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     if (toUnlockInternal > lockedHatchInternal) {
       lockedHatchInternal = 0;
     } else {
-      lockedHatchInternal = lockedHatchInternal.sub(_calcInternalTokens(frictionCostExternal));
+      lockedHatchInternal = lockedHatchInternal.sub(toUnlockInternal);
     }
 
     return reimbursementExternal;
