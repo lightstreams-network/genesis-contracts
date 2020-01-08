@@ -55,9 +55,9 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   const FILE_NAME = process.env.FILE_NAME
 
   const writableStream = fs.createWriteStream(FILE_NAME);
-  writableStream.write('Time, Buy_Sell, Amount_External, Amount_External_EUR, Amount_Internal, Supply_Internal, Supply_External, Supply_External_EUR, Purchase_Exchange_Rate, External_Internal_Ratio\n');
+  writableStream.write('Time, Buy_Sell, Value_External, Value_External_EUR, Value_Internal, Supply_Internal, Bonded_External, Bonded_External_EUR, Exchange_Rate, Price_EUR, External_Internal_Ratio\n');
 
-  plot = async (time, bs, externalWei, internalWei) => {
+  plot = async (time, bs, internalWei, externalWei) => {
     let totalSupplyInternal = await artistToken.totalSupply();
     let totalSupplyExternal = await wPHT.balanceOf(artistToken.address);   
 
@@ -81,6 +81,8 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     writableStream.write(parseFloat(wei2pht(totalSupplyExternal) * process.env.PHT_PRICE_EURO).toFixed(2));
     writableStream.write(", ");
     writableStream.write(parseFloat(purchaseExchange).toFixed(4));
+    writableStream.write(", ");
+    writableStream.write(parseFloat(purchaseExchange * process.env.PHT_PRICE_EURO).toFixed(4));
     writableStream.write(", ");
     writableStream.write(parseFloat(externalInternalRatio).toFixed(4));
     writableStream.write("\n");
@@ -154,7 +156,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
     assert.isTrue(isHatched);
 
-    await plot(0, "B", hatcher1_paidExternal, hatcher1_lockedInternal);
+    await plot(0, "B", hatcher1_lockedInternal, hatcher1_paidExternal);
 
   });
 
@@ -184,7 +186,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
     let newBalance = await wPHT.balanceOf(hatcherSimulator);
     let revenue = newBalance.sub(curBalance);
-    await plot(time, "S", revenue, sellAmount);
+    await plot(time, "S", sellAmount, revenue);
   }
 
   it('should simulate configured market activity from .env file and print economy state', async () => {
@@ -210,7 +212,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
       const purchasedAmount = newBalance.sub(curBalance);
       buyer[time] = purchasedAmount;
 
-      await plot(time, "B", pricePHT, purchasedAmount);
+      await plot(time, "B", purchasedAmount, pricePHT);
     }
 
     for (time = months; time >= 1; time --) {
@@ -227,7 +229,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
       const newBalance = await wPHT.balanceOf(buyerSimulator);
       const revenue = newBalance.sub(curBalance);
 
-      await plot(time, "S", revenue, sellAmount);
+      await plot(time, "S", sellAmount, revenue);
     }
 
     await hatcherClaim(0, hatcherSimulator);

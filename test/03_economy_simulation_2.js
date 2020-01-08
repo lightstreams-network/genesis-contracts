@@ -24,8 +24,8 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   let wPHT;
   let artistToken;
   let artistTokenSymbol;
-  let totalSupply;
-  let tokenWPHTBalance;
+  let totalSupplyInternal;
+  let totalSupplyExternal;
   let tokenPrice;
   let day = 0;
   let buyers = 0;
@@ -84,24 +84,26 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   }
 
   const writableStream = fs.createWriteStream("./simulationOuputFile.csv");
-  writableStream.write('Month, Day, Fan_ID, Fan_Type, BS, ArtistToken_Value, Euro_Value, Speculators, Buyers, Price, Artist_Token_Supply, Pool_Balance_PHT, Fee_balance\n');
+  writableStream.write('Month, Day, Fan_ID, Fan_Type, Buy_Sell, Value_External, Value_External_EUR, Value_Internal, Supply_Internal, Bonded_External, Bonded_External_EUR, Exchange_Rate, Price_EUR, External_Internal_Ratio, Fee_balance_EUR, Unlocked_Internal, Speculators, Subscribers\n');
 
-  writePrice = async (fan, fanType, bs, artistValueWei, valueWei) => {
-    totalSupply = await artistToken.totalSupply();
-    tokenWPHTBalance = await wPHT.balanceOf(artistToken.address);   
-    //tokenPrice = pricePerArtistToken(tokenWPHTBalance, totalSupply);
-    tokenPrice = pricePerArtistToken(valueWei, artistValueWei);
-    //tokenPrice = artistValueWei.div(valueWei);
+  plot = async (fan, fanType, bs, internalWei, externalWei) => {
+    totalSupplyInternal = await artistToken.totalSupply();
+    totalSupplyExternal = await wPHT.balanceOf(artistToken.address);  
 
-    if (totalSupply.gt(pht2wei(new BN("200000")))) {
+    let purchaseExchange = wei2pht(externalWei) / wei2artist(internalWei);
+    let externalInternalRatio = wei2pht(totalSupplyExternal) / wei2artist(totalSupplyInternal);
+    tokenPrice = pricePerArtistToken(externalWei, internalWei);
+
+    if (totalSupplyInternal.gt(pht2wei(new BN("200000")))) {
       subscriptionPriceWei = artist2wei(15);
     }
 
-    let feeBalance = await wPHT.balanceOf(feeRecipient);
+    const feeBalance = await wPHT.balanceOf(feeRecipient);
+    const unlockedInternal = await artistToken.unlockedInternal();
 
     writableStream.write(month.toString());
     writableStream.write(", ");
-    writableStream.write(month.toString());
+    writableStream.write(day.toString());
     writableStream.write(", ");
 
     let fan_id = 0;
@@ -114,26 +116,31 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     writableStream.write(", ");
     writableStream.write(bs);
     writableStream.write(", ");
-    writableStream.write(parseFloat(wei2artist(artistValueWei)).toFixed(0));
+    writableStream.write(Math.round(wei2pht(externalWei)).toString());
     writableStream.write(", ");
-    writableStream.write(wei2euro(valueWei));
+    writableStream.write(wei2euro(externalWei));
+    writableStream.write(", ");
+    writableStream.write(Math.round(wei2artist(internalWei)).toString());
+    writableStream.write(", ");
+    writableStream.write(Math.round(wei2pht(totalSupplyInternal)).toString());
+    writableStream.write(", ");
+    writableStream.write(Math.round(wei2pht(totalSupplyExternal)).toString());
+    writableStream.write(", ");
+    writableStream.write(wei2euro(totalSupplyExternal).toString());
+    writableStream.write(", ");
+    writableStream.write(parseFloat(purchaseExchange).toFixed(4));
+    writableStream.write(", ");
+    writableStream.write(parseFloat(tokenPrice).toFixed(4));
+    writableStream.write(", ");
+    writableStream.write(parseFloat(externalInternalRatio).toFixed(4));
+    writableStream.write(", ");
+    writableStream.write(wei2euro(feeBalance).toString());
+    writableStream.write(", ");
+    writableStream.write(Math.round(wei2pht(unlockedInternal)).toString());
     writableStream.write(", ");
     writableStream.write(speculators.toString());
     writableStream.write(", ");
     writableStream.write(buyers.toString());
-    writableStream.write(", ");
-    writableStream.write(parseFloat(tokenPrice).toFixed(4));
-    writableStream.write(", ");
-    writableStream.write(Math.round(wei2pht(totalSupply)).toString());
-    writableStream.write(", ");
-    writableStream.write(Math.round(wei2pht(tokenWPHTBalance)).toString());
-    writableStream.write(", ");
-    writableStream.write(wei2euro(feeBalance).toString());
-
-    const unlockedInternal = await artistToken.unlockedInternal();
-
-    writableStream.write(", ");
-    writableStream.write(wei2pht(unlockedInternal));
 
     writableStream.write("\n");
   };
@@ -179,13 +186,13 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     const revenue = newBalance.sub(curBalance);
 
     console.log(` sold ${wei2artist(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
-    writePrice(null, "HTC", "S", sellAmount, revenue);
+    plot(null, "HTC", "S", sellAmount, revenue);
   }
 
   simulateSubscriber = async (fan) => {
     const curBalance = await artistToken.balanceOf(buyerSimulator);
 
-    //let subscriptionPrice = wei2artist(totalSupply) / (wei2pht(tokenWPHTBalance) * process.env.PHT_PRICE_EURO * 3);
+    //let subscriptionPrice = wei2artist(totalSupply) / (wei2pht(totalSupplyExternal) * process.env.PHT_PRICE_EURO * 3);
     //subscriptionPrice = Math.floor(subscriptionPrice);
 
     //let subscriptionPriceWei = artist2wei(subscriptionPrice);
@@ -208,7 +215,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
         console.log(` purchased ${wei2artist(purchasedAmount)} ${artistTokenSymbol} for ${wei2pht(topUpAmount)} WPHT worth ${wei2euro(topUpAmount)}€`);
       }
 
-      writePrice(fan, "SUB", "B", purchasedAmount, topUpAmount);
+      plot(fan, "SUB", "B", purchasedAmount, topUpAmount);
     }
 
     if (fan.buyDay !== day) {
@@ -222,7 +229,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
       fan.tokens = fan.tokens.sub(sellAmount);
 
-      writePrice(fan, "AST", "S", sellAmount, revenue);
+      plot(fan, "AST", "S", sellAmount, revenue);
 
       if (PRINT_MARKET_ACTIVITY) {
         console.log(` sold ${wei2artist(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
@@ -249,7 +256,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
         console.log(` purchased ${wei2artist(purchasedAmount)} ${artistTokenSymbol} for ${wei2pht(topUpAmount)} WPHT worth ${wei2euro(topUpAmount)}€`);
       }
 
-      writePrice(fan, "SPC", "B", purchasedAmount, topUpAmount);
+      plot(fan, "SPC", "B", purchasedAmount, topUpAmount);
     }
 
     if (fan.sellMonth === month ) {
@@ -267,7 +274,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
         fan.tokens = fan.tokens.sub(sellAmount);
 
-        writePrice(fan, "SPC", "S", sellAmount, revenue);
+        plot(fan, "SPC", "S", sellAmount, revenue);
 
         if (PRINT_MARKET_ACTIVITY) {
           console.log(` sold ${wei2artist(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
@@ -355,7 +362,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     let hatcher1_lockedInternal = contribution.lockedInternal;
     let hatcher1_paidExternal = contribution.paidExternal;
 
-    writePrice(null, "HTC", "B", hatcher1_lockedInternal, hatcher1_paidExternal);
+    plot(null, "HTC", "B", hatcher1_lockedInternal, hatcher1_paidExternal);
 
     /*
     await wPHT.approve(artistToken.address, SUPER_HATCHER_CAPITAL_WEI, {from: superHatcher});
@@ -366,7 +373,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     let hatcher2_lockedInternal = contribution.lockedInternal;
     let hatcher2_paidExternal = contribution.paidExternal;
 
-    writePrice(null, "HTC", "B", hatcher2_lockedInternal, hatcher2_paidExternal);
+    plot(null, "HTC", "B", hatcher2_lockedInternal, hatcher2_paidExternal);
     */
 
     let isHatched = await artistToken.isHatched();
@@ -413,7 +420,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     //buyers = BUYERS;
 
     let year = 2020;
-    for (month = 1; month <= 12; month ++) {
+    for (month = 1; month <= 2; month ++) {
       let fanIndex = 0;
       startDay = day;
       endDay = day + daysInMonth(month, year);
