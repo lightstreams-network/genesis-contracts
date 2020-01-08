@@ -123,6 +123,8 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
   it('should query WPHT and ensure ArtistToken has received the raised amount in WPHTs', async () => {
     const raisedWPHTs = await artistToken.raisedExternal();
 
+    console.log(`Raised External: ${wei2pht(raisedWPHTs)} WPHT`);
+
     assert.equal(raisedWPHTs.toString(), AMOUNT_TO_RAISE_WEI.toString());
   });
 
@@ -341,20 +343,24 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
 
   it('should be possible to allocate (withdraw) raised funding pool external tokens by Artist', async () => {
     const prefundingPoolBalance = await wPHT.balanceOf(fundingPool.address);
+    const preFundingPoolTokensBalance = await artistToken.balanceOf(fundingPool.address);
     const preFundingPoolAccountantBalance = await wPHT.balanceOf(fundingPoolAccountant);
 
     console.log(`Pre-allocating:`);
     console.log(` - FundingPool balance: ${wei2pht(prefundingPoolBalance)} WPHT`);
+    console.log(` - FundingPool balance: ${wei2pht(preFundingPoolTokensBalance)} ${artistTokenSymbol}`);
     console.log(` - FundingPoolAccountant balance: ${wei2pht(preFundingPoolAccountantBalance)} WPHT`);
 
     await fundingPool.allocateFunds(artistToken.address, fundingPoolAccountant, prefundingPoolBalance, {from: artist });
 
     const postFundingPoolBalance = await wPHT.balanceOf(fundingPool.address);
+    const postFundingPoolTokensBalance = await artistToken.balanceOf(fundingPool.address);
     const postFundingPoolAccountantBalance = await wPHT.balanceOf(fundingPoolAccountant);
     const postFundingPoolAccountantBalanceExpected = preFundingPoolAccountantBalance.add(prefundingPoolBalance);
 
     console.log(`Post-allocating:`);
     console.log(` - FundingPool balance: ${wei2pht(postFundingPoolBalance)} WPHT`);
+    console.log(` - FundingPool balance: ${wei2pht(postFundingPoolTokensBalance)} ${artistTokenSymbol}`);
     console.log(` - FundingPoolAccountant balance: ${wei2pht(postFundingPoolAccountantBalance)} WPHT`);
 
     assert.equal(postFundingPoolBalance.toString(), "0");
@@ -399,7 +405,6 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
     assert.isTrue(postClaimLockedInternal.lt(preClaimLockedInternal), "no hatcher's locked internal artist tokens got unlocked");
     assert.isTrue(postClaimHatcherArtistTokensBalance.gt(preClaimHatcherArtistTokensBalance), "hatcher artist tokens balance didn't increase");
   });
-
   it('should be possible for hatcher to sell his claimed tokens', async () => {
     const burnAmount = (await artistToken.balanceOf(hatcher1)).div(new BN(3, 10));
     const preBurnHatcherWPHTBalance = await wPHT.balanceOf(hatcher1);
