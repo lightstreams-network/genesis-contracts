@@ -31,7 +31,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
 
   const RESERVE_RATIO = 142857; // kappa ~ 6
   const THETA = 350000; // 35% in ppm
-  const P0 =  1; // price to purchase during hatching
+  const P0 = 250000; // 0.25 price to purchase during hatching in ppm
   const FRICTION = 20000; // 2% in ppm
   const GAS_PRICE_WEI = 15000000000; // 15 gwei
   const HATCH_DURATION_SECONDS = 3024000; // 5 weeks
@@ -151,7 +151,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
 
   it('should create a reserve of Artist tokens', async () => {
     const tokensAmount = await artistToken.balanceOf(artistToken.address);
-    const tokensAmountExpected = pht2wei((AMOUNT_TO_RAISE_PHT / P0 ));
+    const tokensAmountExpected = pht2wei((AMOUNT_TO_RAISE_PHT / 4 ));
 
     console.log(`Artist tokens in reserve: ${wei2pht(tokensAmount)} ${artistTokenSymbol}`);
 
@@ -171,7 +171,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
     const contribution = await artistToken.initialContributions(hatcher1);
     const lockedInternal = contribution.lockedInternal;
     const paidExternal = contribution.paidExternal;
-    const lockedInternalExpected = pht2wei(PER_HATCHER_CONTRIBUTION_PHT * P0);
+    const lockedInternalExpected = pht2wei(PER_HATCHER_CONTRIBUTION_PHT / 4);
 
     console.log(`Hatcher1 contribution of internal locked artist tokens: ${wei2pht(lockedInternal)} ${artistTokenSymbol}`);
     console.log(`Hatcher1 contribution of external paid tokens: ${wei2pht(paidExternal)} WPHT`);
@@ -179,7 +179,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
     const contribution2 = await artistToken.initialContributions(hatcher2);
     const lockedInternal2 = contribution2.lockedInternal;
     const paidExternal2 = contribution.paidExternal;
-    const lockedInternalExpected2 = pht2wei(PER_HATCHER_CONTRIBUTION_PHT * P0);
+    const lockedInternalExpected2 = pht2wei(PER_HATCHER_CONTRIBUTION_PHT / 4);
 
     console.log(`Hatcher2 contribution of internal locked artist tokens: ${wei2pht(lockedInternal2)} ${artistTokenSymbol}`);
     console.log(`Hatcher2 contribution of external paid tokens: ${wei2pht(paidExternal2)} WPHT`);
@@ -364,7 +364,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
   it('should let a hatcher to claim his artist tokens after allocating funds in post-hatch phase', async () => {
     const preClaimContribution = await artistToken.initialContributions(hatcher1);
     const preClaimLockedInternal = preClaimContribution.lockedInternal;
-    const preClaimLockedInternalExpected = pht2wei(PER_HATCHER_CONTRIBUTION_PHT * P0);
+    const preClaimLockedInternalExpected = pht2wei(PER_HATCHER_CONTRIBUTION_PHT / 4);
 
     const preClaimHatcherWPHTBalance = await wPHT.balanceOf(hatcher1);
     const preClaimHatcherArtistTokensBalance = await artistToken.balanceOf(hatcher1);
