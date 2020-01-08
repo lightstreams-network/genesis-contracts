@@ -17,7 +17,7 @@ const ArtistToken = artifacts.require("ArtistToken.sol");
 
 const { generateFans } = require('./generateFans');
 
-let subscribers = generateFans();
+let fans = generateFans();
 
 contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, hatcherSimulator, buyer1, buyerSimulator, lastBuyer, feeRecipient]) => {
   let fundingPool;
@@ -28,7 +28,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   let totalSupplyExternal;
   let tokenPrice;
   let day = 0;
-  let buyers = 0;
+  let subscribers = 0;
   let speculators = 0;
   let month = 0;
 
@@ -78,8 +78,8 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   let subscriptionPriceWei = artist2wei(30);
 
   if (PRINT_MARKET_ACTIVITY) {
-    for (let subscriberIndex = 0; subscriberIndex < subscribers.length; subscriberIndex++) {
-      console.log(`Index: ${subscriberIndex}, buyDay: ${subscribers[subscriberIndex].buyDay}, month: ${subscribers[subscriberIndex].month}, sellMonth: ${subscribers[subscriberIndex].sellMonth}`);
+    for (let subscriberIndex = 0; subscriberIndex < fans.length; subscriberIndex++) {
+      console.log(`Index: ${subscriberIndex}, buyDay: ${fans[subscriberIndex].buyDay}, month: ${fans[subscriberIndex].month}, sellMonth: ${fans[subscriberIndex].sellMonth}`);
     }
   }
 
@@ -140,7 +140,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     writableStream.write(", ");
     writableStream.write(speculators.toString());
     writableStream.write(", ");
-    writableStream.write(buyers.toString());
+    writableStream.write(subscribers.toString());
 
     writableStream.write("\n");
   };
@@ -302,7 +302,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
       saleFeePercentage: SALE_FEE_PERCENTAGE + "%",
       artistName: ARTIST_NAME,
       artistSymbol: ARTIST_SYMBOL,
-      buyers: BUYERS,
+      subscribers: BUYERS,
       buyerCapitalPHT: BUYER_CAPITAL_PHT,
       buyerCapitalEuro: pht2euro(BUYER_CAPITAL_PHT) + "€",
       sellerRatio: SELLER_RATIO,
@@ -417,7 +417,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
     const preFeeRecipientWPHTBalance = await wPHT.balanceOf(feeRecipient);
    
-    //buyers = BUYERS;
+    //subscribers = BUYERS;
 
     let year = 2020;
     for (month = 1; month <= 2; month ++) {
@@ -435,8 +435,8 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
         day++;
         let date = day - startDay;
 
-        for (let fanIndex = 0; fanIndex < subscribers.length; fanIndex++) {
-          let fan = subscribers[fanIndex];
+        for (let fanIndex = 0; fanIndex < fans.length; fanIndex++) {
+          let fan = fans[fanIndex];
 
           if (fan.buyDay === date && fan.month <= month) {
             if (PRINT_MARKET_ACTIVITY) {
@@ -454,7 +454,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
               fan.isActive = true;
 
               if (fan.isSubscriber) {
-                buyers ++;
+                subscribers ++;
               } else {
                 speculators ++;
               }
