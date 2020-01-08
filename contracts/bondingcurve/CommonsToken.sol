@@ -2,6 +2,7 @@ pragma solidity ^0.5.0;
 
 import "./BondingCurveToken.sol";
 import "./vendor/lifecycle/Pausable.sol";
+import "./vendor/math/SafeMath.sol";
 
 /**
  * @title CommonsToken
@@ -91,7 +92,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   }
 
   modifier mustBeLargeEnoughContribution(uint256 _amountExternal) {
-    uint256 totalAmountExternal = initialContributions[msg.sender].paidExternal + _amountExternal;
+    uint256 totalAmountExternal = initialContributions[msg.sender].paidExternal.add(_amountExternal);
     require(totalAmountExternal >= minExternalContribution, "Insufficient contribution");
     _;
   }
@@ -173,22 +174,27 @@ contract CommonsToken is BondingCurveToken, Pausable {
     whenNotPaused
   {
     uint256 contributed = _value;
+    uint256 newRaiseBalance = raisedExternal.add(contributed);
 
-    if(raisedExternal + contributed < initialRaise) {
-      raisedExternal += contributed;
+    if(newRaiseBalance < initialRaise) {
+      raisedExternal = newRaiseBalance;
       _pullExternalTokens(contributed);
     } else {
-      contributed = initialRaise - raisedExternal;
+      contributed = initialRaise.sub(raisedExternal);
       raisedExternal = initialRaise;
       _pullExternalTokens(contributed);
       _endHatchPhase();
     }
 
+    uint256 paidExternal = initialContributions[msg.sender].paidExternal;
+    uint256 lockedInternal = initialContributions[msg.sender].lockedInternal;
+
     // Increase the amount paid in EXTERNAL tokens.
-    initialContributions[msg.sender].paidExternal += contributed;
+    initialContributions[msg.sender].paidExternal = paidExternal.add(contributed);
 
     // Lock the INTERNAL tokens, total is EXTERNAL amount * price of internal token during the raise.
-    initialContributions[msg.sender].lockedInternal += contributed * p0;
+    uint256 internalTokens = contributed.mul(p0);
+    initialContributions[msg.sender].lockedInternal = lockedInternal.add(internalTokens);
   }
 
   function fundsAllocated(uint256 _externalAllocated)
@@ -203,9 +209,12 @@ contract CommonsToken is BondingCurveToken, Pausable {
     // We should only update the total unlocked when it is less than 100%.
 
     // TODO: add vesting period ended flag and optimise check.
-    unlockedInternal += _externalAllocated * p0;
-    if (unlockedInternal >= initialRaise * p0) {
-      unlockedInternal = initialRaise * p0;
+    uint256 internalTokens = _externalAllocated.mul(p0);
+    unlockedInternal = unlockedInternal.add(internalTokens);
+
+    uint256 initialInternal = initialRaise.mul(p0);
+    if (unlockedInternal >= initialInternal) {
+      unlockedInternal = initialInternal;
     }
   }
 
@@ -221,19 +230,22 @@ contract CommonsToken is BondingCurveToken, Pausable {
     uint256 paidExternal = initialContributions[msg.sender].paidExternal;
     uint256 lockedInternal = initialContributions[msg.sender].lockedInternal;
 
+    uint256 paidInternal = paidExternal.mul(p0);
+    uint256 initialRaiseInternal = initialRaise.mul(p0);
+
     // The total amount of INTERNAL tokens that should have been unlocked.
-    uint256 shouldHaveUnlockedInternal = (paidExternal * p0 * unlockedInternal) / (initialRaise * p0);
+    uint256 shouldHaveUnlockedInternal = (paidInternal.mul(unlockedInternal)).div(initialRaiseInternal);
     // The amount of INTERNAL tokens that was already unlocked.
-    uint256 previouslyUnlockedInternal = (paidExternal * p0) - lockedInternal;
+    uint256 previouslyUnlockedInternal = paidInternal.sub(lockedInternal);
     // The amount that can be unlocked.
-    uint256 toUnlock = shouldHaveUnlockedInternal - previouslyUnlockedInternal;
+    uint256 toUnlock = shouldHaveUnlockedInternal.sub(previouslyUnlockedInternal);
 
     // Safety check in case the calculation shouldHaveUnlockedInternal causes an overflow.
     if (toUnlock >= lockedInternal) {
       toUnlock = lockedInternal;
     }
 
-    initialContributions[msg.sender].lockedInternal -= toUnlock;
+    initialContributions[msg.sender].lockedInternal = lockedInternal.sub(toUnlock);
     _transfer(address(this), msg.sender, toUnlock);
   }
 
@@ -282,7 +294,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   function _endHatchPhase()
     internal
   {
-    uint256 amountFundingPoolExternal = ((initialRaise) * theta ) / DENOMINATOR_PPM; // denominated in external
+    uint256 amountFundingPoolExternal = (initialRaise.mul(theta)).div(DENOMINATOR_PPM); // denominated in external
     // FIXES: https://github.com/commons-stack/genesis-contracts/issues/16
     // uint256 amountReserveInternal = (initialRaise / p0) * (DENOMINATOR_PPM - theta) / DENOMINATOR_PPM; // denominated in internal
 
@@ -294,7 +306,8 @@ contract CommonsToken is BondingCurveToken, Pausable {
     // Mint INTERNAL tokens to the reserve:
     // FIXES: https://github.com/commons-stack/genesis-contracts/issues/16
     // _mint(address(this), amountReserveInternal);
-    _mint(address(this), initialRaise * p0);
+    uint256 initialRaiseInternal = initialRaise.mul(p0);
+    _mint(address(this), initialRaiseInternal);
 
     // End the hatching phase
     isHatched = true;
@@ -319,17 +332,19 @@ contract CommonsToken is BondingCurveToken, Pausable {
    */
   function _curvedBurn(uint256 amount) internal returns (uint256) {
     uint256 reimbursement = super._curvedBurn(amount);
-    uint256 frictionCost = friction * reimbursement / DENOMINATOR_PPM;
-    externalToken.transfer(msg.sender, reimbursement - frictionCost);
+    uint256 frictionCost = friction.mul(reimbursement).div(DENOMINATOR_PPM);
+    uint256 payout = reimbursement.sub(frictionCost);
+
+    externalToken.transfer(msg.sender, payout);
     externalToken.transfer(feeRecipient, frictionCost);
 
     if (feeRecipient != fundingPool) {
-      unlockedInternal += frictionCost * p0;
+      uint256 toUnlockInternal = frictionCost.mul(p0);
+      unlockedInternal = unlockedInternal.add(toUnlockInternal);
     }
 
-    uint256 lockedInternalMax = initialRaise * p0;
-    
-    if (unlockedInternal > initialRaise * p0) {
+    uint256 lockedInternalMax = initialRaise.mul(p0);
+    if (unlockedInternal > lockedInternalMax) {
       unlockedInternal = lockedInternalMax;
     }
 
