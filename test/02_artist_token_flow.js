@@ -31,7 +31,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
 
   const RESERVE_RATIO = 142857; // kappa ~ 6
   const THETA = 350000; // 35% in ppm
-  const P0 =  1; // price to purchase during hatching
+  const P0 =  2; // price to purchase during hatching
   const FRICTION = 20000; // 2% in ppm
   const GAS_PRICE_WEI = 15000000000; // 15 gwei
   const HATCH_DURATION_SECONDS = 3024000; // 5 weeks
@@ -151,7 +151,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
 
   it('should create a reserve of Artist tokens', async () => {
     const tokensAmount = await artistToken.balanceOf(artistToken.address);
-    const tokensAmountExpected = pht2wei((AMOUNT_TO_RAISE_PHT / P0 ));
+    const tokensAmountExpected = pht2wei((AMOUNT_TO_RAISE_PHT * P0 ));
 
     console.log(`Artist tokens in reserve: ${wei2pht(tokensAmount)} ${artistTokenSymbol}`);
 
