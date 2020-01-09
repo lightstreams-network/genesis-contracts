@@ -14,7 +14,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   /**
     PreHatchContribution keeps track of the contribution of a hatcher during the hatchin phase:
       - paidExternal: the amount contributed during the hatching phase, denominated in external currency
-      - lockedInternal: paidExternal / p0 = the amount of internal tokens represented by paidExternal
+      - lockedInternal: paidExternal * p0 = the amount of internal tokens represented by paidExternal
 
     These tokens are unlocked post-hatch according to a vesting policy. Post hatch, we decrease lockedInternal to 0
   */
@@ -328,7 +328,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
     }
 
     uint256 lockedInternalMax = initialRaise * p0;
-    
+
     if (unlockedInternal > initialRaise * p0) {
       unlockedInternal = lockedInternalMax;
     }
