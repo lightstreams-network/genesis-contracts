@@ -5,11 +5,11 @@
  * Copyright 2019 (c) Lightstreams
  */
 
-require('dotenv').config({ path: `${process.env.PWD}/plot1.env` });
+require('dotenv').config({ path: `${process.env.PWD}/simulation/config/plot1.env` });
 const fs = require('fs');
 
 const { BN } = require('openzeppelin-test-helpers');
-const { pht2wei, wei2pht, pht2euro, wei2euro, pricePerArtistToken, calcPercentageIncrease, daysInMonth, artist2wei, wei2artist} = require('./utils');
+const { pht2wei, wei2pht, pht2euro, wei2euro, pricePerArtistToken, calcPercentageIncrease, daysInMonth, artist2wei, wei2artist} = require('../test/utils');
 
 const FundingPool = artifacts.require("FundingPool.sol");
 const WPHT = artifacts.require("WPHT.sol");
@@ -53,7 +53,6 @@ contract("PlotTestCurve", ([lsAcc, artist, artistAccountant, superHatcher, hatch
   const MIN_HATCH_CONTRIBUTION_WEI = pht2wei(1);
 
   const FILE_NAME = process.env.FILE_NAME
-
   const writableStream = fs.createWriteStream(FILE_NAME);
   writableStream.write('Time, Buy_Sell, Value_External, Value_External_EUR, Value_Internal, Supply_Internal, Bonded_External, Bonded_External_EUR, Exchange_Rate, Price_EUR, External_Internal_Ratio\n');
 
