@@ -174,10 +174,10 @@ contract CommonsToken is BondingCurveToken, Pausable {
     whenNotPaused
   {
     uint256 contributed = _value;
-    uint256 newRaiseBalance = raisedExternal.add(contributed);
+    uint256 newRaisedExternal = raisedExternal.add(contributed);
 
-    if(newRaiseBalance < initialRaise) {
-      raisedExternal = newRaiseBalance;
+    if (newRaisedExternal < initialRaise) {
+      raisedExternal = newRaisedExternal;
       _pullExternalTokens(contributed);
     } else {
       contributed = initialRaise.sub(raisedExternal);
