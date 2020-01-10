@@ -30,7 +30,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
 
   const RESERVE_RATIO = 142857; // kappa ~ 6
   const THETA = 350000; // 35% in ppm
-  const P0 =  1;
+  const P0 =  2;
   const FRICTION = 20000; // 2% in ppm
   const GAS_PRICE_WEI = 15000000000; // 15 gwei
   const HATCH_DURATION_SECONDS = 3024000; // 5 weeks
@@ -61,7 +61,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
   });
 
   describe('Initial State', () => {
-    describe('When new ArtistToken is jut deployed', () => {
+    describe('When new ArtistToken is just deployed', () => {
       it("Should have no tokens created", async () => {
         let raisedExternal = await artistToken.raisedExternal();
 
@@ -160,7 +160,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
 
           it("Should have minted the correct amount to the bonding curve contract", async function() {
             let internalTokensInBondingCurve = await artistToken.balanceOf(artistToken.address);
-            assert.equal(internalTokensInBondingCurve.toString(), pht2wei((AMOUNT_TO_RAISE_PHT / P0 ) * (1 - (THETA  / DENOMINATOR_PPM))).toString());
+            assert.equal(internalTokensInBondingCurve.toString(), pht2wei((AMOUNT_TO_RAISE_PHT * P0 )).toString());
           })
 
           it("Should have ended the hatching phase", async function() {
