@@ -37,7 +37,7 @@ contract("PlotTestCurve", ([lsAcc, artist, artistAccountant, superHatcher, hatch
   const RESERVE_RATIO = process.env.KAPPA;
   const THETA = process.env.THETA;
   const P0 =  process.env.P0;
-  const FRICTION = process.env.SALE_FEE_PERCENTAGE;
+  const FRICTION = "0";
   const GAS_PRICE_WEI = process.env.GAS_PRICE_WEI;
   const HATCH_DURATION_SECONDS = process.env.HATCH_DURATION_SECONDS;
   const HATCH_VESTING_DURATION_SECONDS = process.env.HATCH_VESTING_DURATION_SECONDS;
@@ -56,14 +56,14 @@ contract("PlotTestCurve", ([lsAcc, artist, artistAccountant, superHatcher, hatch
   const writableStream = fs.createWriteStream(FILE_NAME);
   writableStream.write('Time, Buy_Sell, Value_External, Value_External_EUR, Value_Internal, Supply_Internal, Bonded_External, Bonded_External_EUR, Exchange_Rate, Price_EUR, External_Internal_Ratio\n');
 
-  plot = async (time, bs, internalWei, externalWei) => {
+  plot = async (month, bs, internalWei, externalWei) => {
     let totalSupplyInternal = await artistToken.totalSupply();
     let totalSupplyExternal = await wPHT.balanceOf(artistToken.address);   
 
     let purchaseExchange = wei2pht(externalWei) / wei2artist(internalWei);
     let externalInternalRatio = wei2pht(totalSupplyExternal) / wei2artist(totalSupplyInternal);
 
-    writableStream.write(time.toString());
+    writableStream.write(month.toString());
     writableStream.write(", ");
     writableStream.write(bs);
     writableStream.write(", ");
@@ -172,7 +172,7 @@ contract("PlotTestCurve", ([lsAcc, artist, artistAccountant, superHatcher, hatch
     assert.equal(accountantWPHTBalance.toString(), withdrawAmountWei.toString());
   });
 
-  hatcherClaim = async (time, hatcherSimulator) => {
+  hatcherClaim = async (month, hatcherSimulator) => {
     let contribution = await artistToken.initialContributions(hatcherSimulator);
     let lockedInternal = contribution.lockedInternal;
 
@@ -185,22 +185,19 @@ contract("PlotTestCurve", ([lsAcc, artist, artistAccountant, superHatcher, hatch
 
     let newBalance = await wPHT.balanceOf(hatcherSimulator);
     let revenue = newBalance.sub(curBalance);
-    await plot(time, "S", sellAmount, revenue);
+    await plot(month, "S", sellAmount, revenue);
   }
 
   it('should simulate configured market activity from .env file and print economy state', async () => {
     let buyer = [];
-
-    let months = MONTHS;
-
-    let buyAmount = PURCHASE_AMOUNT_PHT / 2;
+    let buyAmount = PURCHASE_AMOUNT_PHT;
     
-    for (time = 1; time <= months; time ++) {
+    for (let month = 1; month <= MONTHS; month ++) {
 
-      console.log(`Month: ${time}`);
+      console.log(`Month: ${month}`);
 
       const curBalance = await artistToken.balanceOf(buyerSimulator);
-      buyAmount = buyAmount *2;
+      buyAmount = buyAmount;
       pricePHT = pht2wei(buyAmount);
       
       await wPHT.deposit({ from: buyerSimulator, value: pricePHT });
@@ -209,17 +206,19 @@ contract("PlotTestCurve", ([lsAcc, artist, artistAccountant, superHatcher, hatch
 
       const newBalance = await artistToken.balanceOf(buyerSimulator);
       const purchasedAmount = newBalance.sub(curBalance);
-      buyer[time] = purchasedAmount;
+      buyer[month] = purchasedAmount;
 
-      await plot(time, "B", purchasedAmount, pricePHT);
+      await plot(month, "B", purchasedAmount, pricePHT);
     }
 
-    for (time = months; time >= 1; time --) {
+    let month = MONTHS;
+    for (let index = MONTHS; index >= 1; index --) {
+      month ++;
 
-      console.log(`Month: ${time}`);
+      console.log(`Month: ${month}`);
 
-      const artistTokens = await artistToken.balanceOf(buyerSimulator);
-      let sellAmount = buyer[time];
+      //const artistTokens = await artistToken.balanceOf(buyerSimulator);
+      let sellAmount = buyer[index];
 
       const curBalance = await wPHT.balanceOf(buyerSimulator);
 
@@ -228,10 +227,10 @@ contract("PlotTestCurve", ([lsAcc, artist, artistAccountant, superHatcher, hatch
       const newBalance = await wPHT.balanceOf(buyerSimulator);
       const revenue = newBalance.sub(curBalance);
 
-      await plot(time, "S", sellAmount, revenue);
+      await plot(month, "S", sellAmount, revenue);
     }
 
-    await hatcherClaim(0, hatcherSimulator);
+    await hatcherClaim(MONTHS * 2 + 1, hatcherSimulator);
 
   }); 
 

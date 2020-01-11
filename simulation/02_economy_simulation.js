@@ -34,7 +34,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   let speculators = 0;
 
   // 1000 €
-  const HATCH_LIMIT_PHT = "100000";
+  const HATCH_LIMIT_PHT = "750000";
   const HATCH_LIMIT_WEI = pht2wei(HATCH_LIMIT_PHT);
   const SUBSCRIPTION_PRICE = artist2wei(50);
   const MIN_FAN_BALANCE = artist2wei(30);
@@ -53,10 +53,10 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   // kappa ~ 6 -> 1/7 * 1000000 = 142857
   // kappa ~ 1.25 (5/4) -> 1/2.25 * 1000000 = 444444
   const RESERVE_RATIO="444444";
-  // 35%
-  const THETA = "350000";
-  // 0.50
-  const P0 =  "500000";
+  // 40%
+  const THETA = "400000";
+  // 1.00
+  const P0 =  "1000000";
   // 10%
   const FRICTION = "100000";
   const GAS_PRICE_WEI = "15000000000";
@@ -82,7 +82,9 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   const SALE_FEE_PERCENTAGE = (FRICTION / DENOMINATOR_PPM * 100);
   const MIN_HATCH_CONTRIBUTION_WEI = pht2wei(1);
 
-  let subscriptionPriceWei = artist2wei(30);
+  const SIMULATION_MONTHS = 2;
+
+  let subscriptionPriceWei = artist2wei(5);
 
   if (PRINT_MARKET_ACTIVITY) {
     for (let subscriberIndex = 0; subscriberIndex < fans.length; subscriberIndex++) {
@@ -162,10 +164,10 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
 
     const feeBalance = await wPHT.balanceOf(feeRecipient);
 
-
+/*
     if (totalSupplyInternal.gt(pht2wei(new BN("200000")))) {
       subscriptionPriceWei = artist2wei(15);
-    }
+    }*/
 
     const unlockedInternal = await artistToken.unlockedInternal();
     const lockedInteral = raiseInternal.sub(unlockedInternal);
@@ -223,13 +225,13 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   generateTopUpAmount = () => {
     let rand = Math.floor(Math.random() * 100);
     if (rand < 50) {
-      return 500;
+      return 500000;
     }
     if (rand < 80) {
-      return 1000;
+      return 1000000;
     }
 
-    return 2000;
+    return 2000000;
   }
 
   hatcherSell = async (hatcher, percentage) => {
@@ -511,7 +513,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     //subscribers = BUYERS;
 
     let year = 2020;
-    for (month = 1; month <= 12; month ++) {
+    for (month = 1; month <= SIMULATION_MONTHS; month ++) {
       let fanIndex = 0;
       startDay = day;
       endDay = day + daysInMonth(month, year);
