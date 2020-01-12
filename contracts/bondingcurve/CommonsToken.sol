@@ -353,8 +353,6 @@ contract CommonsToken is BondingCurveToken, Pausable {
       unlockedInternal = lockedInternalMax;
     }
 
-    unlockedInternal = lockedInternalMax;
-
     return reimbursement;
   }
 }

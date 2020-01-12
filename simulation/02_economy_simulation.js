@@ -16,8 +16,6 @@ const ArtistToken = artifacts.require("ArtistToken.sol");
 
 const { generateFans } = require('../test/generateFans');
 
-let fans = generateFans();
-
 contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, hatcherSimulator, buyer1, buyerSimulator, lastBuyer, feeRecipient]) => {
   let fundingPool;
   let wPHT;
@@ -33,8 +31,15 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   let subscribers = 0;
   let speculators = 0;
 
+  const SIMULATION_MONTHS = 6;
+  const INIT_SUBSCRIBERS = 20;
+  const INIT_SPECULATORS = 5;
+  const SUBSCRIBER_GROWTH = 0.30;
+  const SPECULATOR_GROWTH = 0.20;
+  const YEAR = 2020;
+
   // 1000 €
-  const HATCH_LIMIT_PHT = "750000";
+  const HATCH_LIMIT_PHT = "250000";
   const HATCH_LIMIT_WEI = pht2wei(HATCH_LIMIT_PHT);
   const SUBSCRIPTION_PRICE = artist2wei(50);
   const MIN_FAN_BALANCE = artist2wei(30);
@@ -82,9 +87,9 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   const SALE_FEE_PERCENTAGE = (FRICTION / DENOMINATOR_PPM * 100);
   const MIN_HATCH_CONTRIBUTION_WEI = pht2wei(1);
 
-  const SIMULATION_MONTHS = 2;
-
   let subscriptionPriceWei = artist2wei(5);
+
+  let fans = generateFans(YEAR, INIT_SUBSCRIBERS, INIT_SPECULATORS, SUBSCRIBER_GROWTH, SPECULATOR_GROWTH);
 
   if (PRINT_MARKET_ACTIVITY) {
     for (let subscriberIndex = 0; subscriberIndex < fans.length; subscriberIndex++) {
@@ -225,13 +230,13 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
   generateTopUpAmount = () => {
     let rand = Math.floor(Math.random() * 100);
     if (rand < 50) {
-      return 500000;
+      return 500;
     }
     if (rand < 80) {
-      return 1000000;
+      return 1000;
     }
 
-    return 2000000;
+    return 2000;
   }
 
   hatcherSell = async (hatcher, percentage) => {
@@ -369,6 +374,12 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
         fan.tokens = fan.tokens.sub(sellAmount);
 
         plot(fan, "SPC", "S", sellAmount, revenue);
+
+        if (wei2pht(revenue) > 200) {
+          subscriptionPriceWei = await artistToken.calculateCurvedMintReturn(pht2wei(200));
+          console.log(`subscriptionPrice: ${subscriptionPriceWei}`);
+          console.log(`subscriptionPrice: ${wei2pht(subscriptionPriceWei)}`);
+        }
 
         if (PRINT_MARKET_ACTIVITY) {
           console.log(` sold ${wei2artist(sellAmount)} ${artistTokenSymbol} for ${wei2pht(revenue)} WPHT worth ${wei2euro(revenue)}€`);
@@ -512,7 +523,10 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
    
     //subscribers = BUYERS;
 
-    let year = 2020;
+
+    subscriptionPriceWei = await artistToken.calculateCurvedMintReturn(pht2wei(200));
+
+    let year = YEAR;
     for (month = 1; month <= SIMULATION_MONTHS; month ++) {
       let fanIndex = 0;
       startDay = day;
@@ -521,7 +535,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
       console.log(`Month: ${month}`);
 
       if (month === 4 || month === 7 || month === 10 ) {
-        await hatcherSell(hatcherSimulator, 25);
+        await hatcherSell(hatcherSimulator, 15);
       }
       
       while(day < endDay) {
