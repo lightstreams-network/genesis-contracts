@@ -190,14 +190,14 @@ contract("PlotTestCurve", ([lsAcc, artist, artistAccountant, superHatcher, hatch
 
   it('should simulate configured market activity from .env file and print economy state', async () => {
     let buyer = [];
-    let buyAmount = PURCHASE_AMOUNT_PHT;
+    let buyAmount = PURCHASE_AMOUNT_PHT / 2;
     
     for (let month = 1; month <= MONTHS; month ++) {
 
       console.log(`Month: ${month}`);
 
       const curBalance = await artistToken.balanceOf(buyerSimulator);
-      buyAmount = buyAmount;
+      buyAmount = buyAmount * 2;
       pricePHT = pht2wei(buyAmount);
       
       await wPHT.deposit({ from: buyerSimulator, value: pricePHT });
