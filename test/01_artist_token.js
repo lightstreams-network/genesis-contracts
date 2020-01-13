@@ -109,7 +109,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
               it("Should have set the locked internal tokens for the hatcher", async function() {
                 let initialContributions = await artistToken.initialContributions(hatcher1);
                 let lockedInternal = initialContributions.lockedInternal;
-                assert.equal(lockedInternal.toString(), (INSUFFICIENT_AMOUNT_TO_RAISE_WEI/ 4).toString());
+                assert.equal(lockedInternal.toString(), (INSUFFICIENT_AMOUNT_TO_RAISE_WEI * P0 / DENOMINATOR_PPM).toString());
               })
             })
             describe("When the ArtistToken cannot pull the reserve token", async function() {
@@ -160,7 +160,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
 
           it("Should have minted the correct amount to the bonding curve contract", async function() {
             let internalTokensInBondingCurve = await artistToken.balanceOf(artistToken.address);
-            assert.equal(internalTokensInBondingCurve.toString(), pht2wei((AMOUNT_TO_RAISE_PHT/ 4 )).toString());
+            assert.equal(internalTokensInBondingCurve.toString(), pht2wei((AMOUNT_TO_RAISE_PHT * P0 / DENOMINATOR_PPM )).toString());
           })
 
           it("Should have ended the hatching phase", async function() {
