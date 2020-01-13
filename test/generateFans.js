@@ -19,29 +19,29 @@ function generateFans(fans, amount, month, days, isSubscriber) {
   return fans;
 }
 
-module.exports.generateFans = ()=>{
+module.exports.generateFans = (year, initSubscriber, initSpeculators, growthSubscribers, growthSpeculators)=>{
     let fans = [];
 
     // Subscribers
-    let year = 2020;
-    let growth = 0.10;
-
-    let numOfNew = 30;
-    for (let month = 1; month <= 12; month ++) {
+    let subscriberCount = initSubscriber;
+    let numOfNew = initSubscriber;
+    for (let month = 1; month <= 18; month ++) {
         let days = daysInMonth(month, year);
         fans = generateFans(fans, numOfNew, month, days, true);
         
-        numOfNew = Math.ceil(fans.length*growth);
+        numOfNew = Math.round(subscriberCount * growthSubscribers);
+        subscriberCount += subscriberCount * growthSubscribers;
     }
 
     // Speculators
-    numOfNew = 3;
-    growth = 0.05;
-    for (let month = 1; month <= 12; month ++) {
+    let speculatorCount = initSpeculators;
+    numOfNew = initSpeculators;
+    for (let month = 1; month <= 18; month ++) {  
         let days = daysInMonth(month, year);
         fans = generateFans(fans, numOfNew, month, days, false);
         
-        numOfNew = Math.ceil(fans.length*growth);
+        numOfNew = Math.round(speculatorCount * growthSpeculators);
+        speculatorCount += speculatorCount * growthSpeculators;
     }
 
     return fans.sort((a, b) => (a.month * 100 + a.buyDay) -  (b.month * 100 + b.buyDay));;
