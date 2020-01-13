@@ -40,7 +40,7 @@ contract CommonsToken is BondingCurveToken, Pausable {
   uint256 public theta; // fraction (in PPM) of the contributed amount that goes to the funding pool
   uint256 public p0; // price (in externalToken) for which people can purchase the internal token during the hathing phase
   uint256 public initialRaise; // the amount of external tokens that must be contributed during the hatching phase to go post-hatching
-  uint256 private initialRaiseInternal; // the amount of INTERNAL tokens that are minted during the hatching phase.
+  uint256 public initialRaiseInternal; // the amount of INTERNAL tokens that are minted during the hatching phase.
   uint256 public friction; // the fraction (in PPM) that goes to the funding pool when internal tokens are burned
 
   // Minimal EXTERNAL token contribution:
