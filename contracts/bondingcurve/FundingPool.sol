@@ -13,4 +13,8 @@ contract FundingPool {
     artistToken.fundsAllocated(value);
     IERC20(artistToken.externalToken()).transfer(to, value);
   }
+
+  function getValue() public returns (uint) {
+    return 5;
+  }
 }

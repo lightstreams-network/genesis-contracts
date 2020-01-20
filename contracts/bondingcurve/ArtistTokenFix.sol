@@ -8,18 +8,10 @@ import "./vendor/ERC20/WPHTPromotion.sol";
 import "./vendor/ERC20/WPHT.sol";
 import "./BarWPHTPromotion.sol";
 
-contract ArtistToken is CommonsToken, Ownable {
+contract ArtistTokenFix is CommonsToken, Ownable {
     string public name;   // e.g: Armin Van Lightstreams
     string public symbol; // e.g: AVL
-
-    //WPHTPromotion public promotionToken;
-    mapping (address => uint) public promoBalanceOf;
-
-    /*
-    * @param _addresses [0] externalToken [1] fundingPool [2] feeRecipient [3] pauser
-    * @param _settings [0] _gasPrice [1] _theta [2] _p0 [3] _initialRaise [4] _friction [5] _hatchDurationSeconds [6] _hatchVestingDurationSeconds [7] _minExternalContribution
-    * @param _reserveRatio
-    */
+    
     constructor (
         string memory _name,
         string memory _symbol,
@@ -38,18 +30,13 @@ contract ArtistToken is CommonsToken, Ownable {
         symbol = _symbol;
     }
 
-    function setPromotionToken(address payable _address) public {
-        //promotionToken = WPHTPromotion(_address);
-    }
-
     function approveBar(address payable addr, address guy, uint wad) public {
-        WPHTPromotion bar = WPHTPromotion(addr);
+        BarWPHTPromotion bar = BarWPHTPromotion(addr);
         bar.approve(guy, wad);
     }
 
-    function pullPromoTokens(address payable addr, uint value) public {
-        WPHTPromotion promoContract = WPHTPromotion(addr);
-        promoContract.pullPromotionTokens(msg.sender, value);
+    function setPromotionToken(address payable _address) public {
+        //promotionToken = WPHTPromotion(_address);
     }
 
     /*

@@ -28,7 +28,8 @@ module.exports = {
   },
   compilers: {
     solc: {
-      version: '0.5.2',
+      //version: '0.5.2', Commented beacuse it is causing VM Exception while processing transaction: out of gas exception. 
+                          // I referred to this to figure out the issue: https://github.com/trufflesuite/truffle/issues/1308
       optimizer: {
         enabled: true, // Default: false
         runs: 1000     // Default: 200
