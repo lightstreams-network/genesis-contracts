@@ -24,7 +24,7 @@ module.exports = async function(deployer, networks, accounts) {
   await deployer.deploy(
     ArtistToken,
     "Armin Van Lightstreams",
-    "AVL",
+    web3.utils.hexToBytes(web3.utils.asciiToHex("AVL")),
     [wPHT.address, fundingPoolMockInstance.address, fundingPoolMockInstance.address, accounts[0]],
     [gasPrice, theta, p0, initialRaise, friction, hatchDurationSeconds, hatchVestingDurationSeconds, minExternalContibution],
     reserveRatio,
