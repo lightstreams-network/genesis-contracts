@@ -10,7 +10,17 @@ module.exports = {
     development: {
       host: "127.0.0.1",
       port: 8545,
-      network_id: "*"
+      network_id: "*",
+      //gas: 10000000,
+
+      gasPrice: 1000000000
+    },
+    standalone: {
+        host: "127.0.0.1",
+        port: 8545,
+        network_id: "161",
+        gasPrice: "500000000000",
+        from: "0xc916cfe5c83dd4fc3c3b0bf2ec2d4e401782875e"
     },
     test: {
       host: "127.0.0.1",
@@ -28,11 +38,12 @@ module.exports = {
   },
   compilers: {
     solc: {
-      //version: '0.5.2', Commented beacuse it is causing VM Exception while processing transaction: out of gas exception. 
+      parser: "solcjs", 
+      //version: '0.5.16', // Commented beacuse it is causing VM Exception while processing transaction: out of gas exception. 
                           // I referred to this to figure out the issue: https://github.com/trufflesuite/truffle/issues/1308
       optimizer: {
         enabled: true, // Default: false
-        runs: 1000     // Default: 200
+        runs: 5000     // Default: 200
       }
     }
   }

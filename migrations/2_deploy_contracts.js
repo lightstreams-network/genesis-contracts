@@ -21,6 +21,7 @@ module.exports = async function(deployer, networks, accounts) {
   await deployer.deploy(WPHT, accounts[0]);
   const wPHT = await WPHT.deployed();
 
+  
   await deployer.deploy(
     ArtistToken,
     "Armin Van Lightstreams",
@@ -28,6 +29,6 @@ module.exports = async function(deployer, networks, accounts) {
     [wPHT.address, fundingPoolMockInstance.address, fundingPoolMockInstance.address, accounts[0]],
     [gasPrice, theta, p0, initialRaise, friction, hatchDurationSeconds, hatchVestingDurationSeconds, minExternalContibution],
     reserveRatio,
-    { from: accounts[0], gas: 20000000 }
+    { from: accounts[0], gas: 15000000 }
   );
 };

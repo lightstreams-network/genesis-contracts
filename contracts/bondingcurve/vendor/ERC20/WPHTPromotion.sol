@@ -1,9 +1,9 @@
 pragma solidity ^0.5.0;
 
 import "../math/SafeMath.sol";
-import "./Dummy.sol";
+import "./WPHT.sol";
 
-contract WPHTPromotion is Dummy {
+contract WPHTPromotion is WPHT {
     using SafeMath for uint;
     
     // addresses that promotion tokens can be transferred to.
@@ -20,9 +20,10 @@ contract WPHTPromotion is Dummy {
         promotionAccounts[account] = true;
     }
 
+    /*
     function removePromotionSpending(address account) public {
         promotionAccounts[account] = false;
-    }
+    }*/
 
     function transferAsPromotion(address recipient, uint value) public returns (bool) {
         promoBalanceOf[recipient] = value;

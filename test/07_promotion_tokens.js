@@ -48,7 +48,6 @@ contract("Promotion Tokens", ([project, artist, hatcher]) => {
       { from: artist, gas: 10000000 }
     );
     
-    await artistToken.setPromotionToken(wPHT.address);
     await wPHT.addPromotionSpending(artist); 
 
     await wPHT.deposit({
@@ -118,13 +117,12 @@ contract("Promotion Tokens", ([project, artist, hatcher]) => {
     await wPHT.approvePromotionTokens(artistToken.address, AMOUNT_TO_RAISE_WEI, {from: hatcher});
 
     await artistToken.hatchContribute(AMOUNT_TO_RAISE_WEI, {from: hatcher});
-    //await artistToken.pullPromotionTokens(wPHT.address, AMOUNT_TO_RAISE_WEI, {from: hatcher});
 
     let isHatched = await artistToken.isHatched();
 
     assert.isTrue(isHatched);
 
-    const bal = await wPHT.promoBalanceOf(hatcher);
+    const bal = await artistToken.promoBalanceOf(hatcher);
     console.log(`bal: ${bal}`);
   });
   

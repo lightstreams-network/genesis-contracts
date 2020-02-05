@@ -1,19 +1,16 @@
 pragma solidity ^0.5.0;
 
 import "./CommonsToken.sol";
-import "./vendor/ERC20/Dummy.sol";
-import "./vendor/ERC20/DummyNoPayable.sol";
 import "./vendor/access/Ownable.sol";
 import "./vendor/ERC20/WPHTPromotion.sol";
-import "./vendor/ERC20/WPHT.sol";
-import "./BarWPHTPromotion.sol";
 
 contract ArtistToken is CommonsToken, Ownable {
     string public name;   // e.g: Armin Van Lightstreams
     string public symbol; // e.g: AVL
 
-    //WPHTPromotion public promotionToken;
+    WPHTPromotion public promoToken;
     mapping (address => uint) public promoBalanceOf;
+    mapping (address => bool) public promoClaimed;
 
     /*
     * @param _addresses [0] externalToken [1] fundingPool [2] feeRecipient [3] pauser
@@ -36,79 +33,30 @@ contract ArtistToken is CommonsToken, Ownable {
     {
         name = _name;
         symbol = _symbol;
+
+        promoToken = WPHTPromotion(address(uint160(_addresses[0])));
     }
 
-    function setPromotionToken(address payable _address) public {
-        //promotionToken = WPHTPromotion(_address);
+    function hatchContribute(uint256 value) public {
+        super.hatchContribute(value);
+
+        uint promoTokens = promoToken.pullPromotionTokens(msg.sender, value);
+        promoBalanceOf[msg.sender] = promoTokens;
+
+        uint256 paidExternal = initialContributions[msg.sender].paidExternal;
+        uint256 lockedInternal = initialContributions[msg.sender].lockedInternal;
+
+        initialContributions[msg.sender].paidExternal = paidExternal.sub(promoTokens);
+        initialContributions[msg.sender].lockedInternal = lockedInternal.sub(super._calcInternalTokens(promoTokens));
     }
+    
+    function claimPromoTokens() public {
+        uint promoBalance = promoBalanceOf[msg.sender];
+        require(promoBalance > 0, "There are no pomotion tokens to claim.");
 
-    function approveBar(address payable addr, address guy, uint wad) public {
-        WPHTPromotion bar = WPHTPromotion(addr);
-        bar.approve(guy, wad);
+        require(!promoClaimed[msg.sender], "Promotion tokens have already been claimed.");
+        promoClaimed[msg.sender] = true;
+        uint256 internalTokens = super._calcInternalTokens(promoBalance);
+        super._transfer(address(this), msg.sender, internalTokens);
     }
-
-    function pullPromoTokens(address payable addr, uint value) public {
-        WPHTPromotion promoContract = WPHTPromotion(addr);
-        promoContract.pullPromotionTokens(msg.sender, value);
-    }
-
-    /*
-    function pullPromotionTokens(address promoContractAddr, uint value) public {
-        
-        address payable wallet = address(uint160(promoContractAddr));
-
-        WPHTPromotion promoContract = WPHTPromotion(wallet);
-        promoContract.pullPromotionTokens(msg.sender, value);
-    }
-    */
-
-    /*
-    function pullPromotionTokens(address payable promoContractAddr, uint value) public {
-        WPHTPromotion promoContract = WPHTPromotion(promoContractAddr);
-        promoContract.pullPromotionTokens(msg.sender, value);
-    }*/
-
-    /*
-    function addPromotionSpending(address payable addr, address account) public {
-        WPHTPromotion d = WPHTPromotion(addr);
-        d.addPromotionSpending(account);
-    }*/
-
-    /*
-    function approve(address payable addr, address account, uint value) public {
-        Dummy d = Dummy(addr);
-        d.approve(account, value);
-    }*/
-
-    /*
-    function approve(address addr, address account, uint value) public {
-        DummyNoPayable d = DummyNoPayable(addr);
-        d.approve(account, value);
-    }*/
-
-    /*
-    function approve(address payable addr, address guy, uint wad) public {
-        BarWPHTPromotion bar = BarWPHTPromotion(addr);
-        bar.approve(guy, wad);
-    }*/
-
-    /*
-    function getDummyBalance(address payable addr) public returns (uint) {
-        WPHTPromotion d = WPHTPromotion(addr);
-        return d.balanceOf(msg.sender);
-    }*/
-
-    /*
-    function pullPromotionTokens(address payable addr, uint value) public {
-        WPHTPromotion d = WPHTPromotion(addr);
-        d.pullPromotionTokens(msg.sender, value);
-        //uint promoTokens = d.pullPromotionTokens(msg.sender, value);
-        //promoBalanceOf[msg.sender] = promoTokens;
-    }*/
-
-    /*
-    function getBalance(address payable addr) public returns (uint) {
-        WPHT d = WPHT(addr);
-        return d.balanceOf(msg.sender);
-    }*/
 }
