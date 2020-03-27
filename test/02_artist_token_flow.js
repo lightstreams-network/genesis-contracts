@@ -45,6 +45,7 @@ contract("ArtistTokenFlow", ([artist, hatcher1, hatcher2, buyer1, buyer2, fundin
     wPHT = await WPHT.new();
 
     artistToken = await ArtistToken.new(
+      artist,
       ARTIST_NAME,
       ARTIST_SYMBOL,
       [wPHT.address, fundingPool.address, feeRecipient, lightstreams],

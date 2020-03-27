@@ -38,6 +38,7 @@ contract("ClaimTokensOverflow", ([artist, hatcher, buyer, feeRecipient]) => {
     wPHT = await WPHT.new();
 
     artistToken = await ArtistToken.new(
+      artist,
       ARTIST_NAME,
       ARTIST_SYMBOL,
       [wPHT.address, fundingPool.address, feeRecipient, artist],

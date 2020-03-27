@@ -91,6 +91,7 @@ contract("EconomySimulation", ([lsAcc, artist, artistAccountant, superHatcher, h
     wPHT = await WPHT.new();
 
     artistToken = await ArtistToken.new(
+      artist,
       ARTIST_NAME,
       ARTIST_SYMBOL,
       [wPHT.address, fundingPool.address, feeRecipient, lsAcc],

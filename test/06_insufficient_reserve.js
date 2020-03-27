@@ -36,6 +36,7 @@ contract("InsufficientReserve", ([artist, hatcher, buyer, lightstreams]) => {
     wPHT = await WPHT.new();
 
     artistToken = await ArtistToken.new(
+      artist,
       ARTIST_NAME,
       ARTIST_SYMBOL,
       [wPHT.address, fundingPool.address, fundingPool.address, lightstreams],

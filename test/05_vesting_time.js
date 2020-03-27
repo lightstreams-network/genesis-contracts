@@ -36,6 +36,7 @@ contract("VestingTime", ([artist, hatcher, buyer, feeRecipient, lightstreams]) =
     wPHT = await WPHT.new();
 
     artistToken = await ArtistToken.new(
+      artist,
       ARTIST_NAME,
       ARTIST_SYMBOL,
       [wPHT.address, fundingPool.address, feeRecipient, lightstreams],

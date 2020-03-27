@@ -41,6 +41,7 @@ contract("ArtistToken", ([lightstreams, hatcher1, hatcher2, lateInvestor]) => {
     wPHT = await WPHT.new();
 
     artistToken = await ArtistToken.new(
+      lightstreams,
       "Armin Van Lightstreams",
       "AVL",
       [wPHT.address, fundingPool.address, fundingPool.address, lightstreams],
